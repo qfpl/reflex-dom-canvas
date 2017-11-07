@@ -12,11 +12,12 @@
 {-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-
+{-# LANGUAGE PolyKinds #-}
 -- Sigh, would like to get rid of need for Monad*Control if possible.
 -- Not convinced I need it, added to meet reqs, for now.
 {-# LANGUAGE UndecidableInstances       #-}
 
+{-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Dom.CanvasBuilder
   ( Canvas2DM
   , CanvasWebGLM
@@ -78,7 +79,7 @@ import qualified JSDOM.HTMLCanvasElement        as HTMLCanvas
 import           JSDOM.Types                    (IsRenderingContext, JSM,
                                                  MonadJSM,
                                                  RenderingContext (..),
-                                                 WebGLRenderingContext,
+                                                 WebGLRenderingContext, fromJSValUnchecked,
                                                  fromJSVal, liftJSM, runJSM,
                                                  toJSVal, withCallback)
 
@@ -190,28 +191,29 @@ instance ( R.Reflex t,
            RD.MonadHold t m,
            MonadFix m,
            PrimMonad m,
+           HasRenderFn c,
            IsRenderingContext (RenderContext c)
          )
   => RD.MonadAdjust t (ImmediateCanvasBuilderT c t m) where
   runWithReplace (ImmediateCanvasBuilderT a0) a' = do
     r <- ask
     lift
-      $ R.runWithReplace (runImmediateCanvasBuilderT undefined ( ImmediateCanvasBuilderT a0 ) r)
-      $ fmap (\a -> runImmediateCanvasBuilderT undefined a r) a'
+      $ R.runWithReplace (runImmediateCanvasBuilderT ( ImmediateCanvasBuilderT a0 ) r)
+      $ fmap (\a -> runImmediateCanvasBuilderT a r) a'
 
   traverseIntMapWithKeyWithAdjust f dm0 dm' = do
     r <- ask
     lift
-      $ R.traverseIntMapWithKeyWithAdjust (\k v -> runImmediateCanvasBuilderT undefined (f k v) r) dm0 dm'
+      $ R.traverseIntMapWithKeyWithAdjust (\k v -> runImmediateCanvasBuilderT (f k v) r) dm0 dm'
 
   traverseDMapWithKeyWithAdjust f dm0 dm' = do
     r <- ask
     lift
-      $ R.traverseDMapWithKeyWithAdjust (\k v -> runImmediateCanvasBuilderT undefined (f k v) r) dm0 dm'
+      $ R.traverseDMapWithKeyWithAdjust (\k v -> runImmediateCanvasBuilderT (f k v) r) dm0 dm'
 
   traverseDMapWithKeyWithAdjustWithMove f dm0 dm' = do
     r <- ask
-    lift $ R.traverseDMapWithKeyWithAdjustWithMove (\k v -> runImmediateCanvasBuilderT undefined (f k v) r) dm0 dm'
+    lift $ R.traverseDMapWithKeyWithAdjustWithMove (\k v -> runImmediateCanvasBuilderT (f k v) r) dm0 dm'
 
 instance PrimMonad m => PrimMonad (ImmediateCanvasBuilderT c t m) where
   type PrimState (ImmediateCanvasBuilderT c t m) = PrimState m
@@ -232,6 +234,7 @@ instance MonadTransControl (ImmediateCanvasBuilderT c t) where
 
 instance ( RD.SupportsImmediateDomBuilder t m
          , IsRenderingContext (RenderContext c)
+         , HasRenderFn c
          , RD.DomBuilderSpace m ~ RD.GhcjsDomSpace
          , Ref (RD.Performable m) ~ IORef
          , RD.DomBuilder t m
@@ -265,30 +268,43 @@ type Monad2DCanvas t m = MonadCanvasConstraints 'TwoD t m
 type Canvas2DM t m a    = ImmediateCanvasBuilderT 'TwoD t m a
 type CanvasWebGLM t m a = ImmediateCanvasBuilderT 'Webgl t m a
 
+class HasRenderFn a where
+  renderFunction :: Proxy a -> RenderContext a -> CanvasM () -> JSM ()
+
+instance HasRenderFn 'TwoD where
+  renderFunction _ = flip CanvasF.drawToCanvas
+
+instance HasRenderFn 'Webgl where
+  renderFunction _ = error "webgl render function not implemented"
+
 runImmediateCanvasBuilderT
-  :: ( RD.MonadWidget t m
-     , RD.DomBuilderSpace m ~ RD.GhcjsDomSpace
-     , IsRenderingContext (RenderContext c)
-     , RD.PerformEvent t m
-     , MonadJSM m
-     , MonadJSM (RD.Performable m)
-     , MonadRef m
-     , Ref m ~ IORef
-     )
-  => ( RenderContext c -> CanvasM () -> JSM () )
-  -> ImmediateCanvasBuilderT c t m a
+  :: forall c t m a. ( RD.MonadWidget t m
+                     , RD.DomBuilderSpace m ~ RD.GhcjsDomSpace
+                     , IsRenderingContext (RenderContext c)
+                     , HasRenderFn c
+                     , RD.PerformEvent t m
+                     , MonadJSM m
+                     , MonadJSM (RD.Performable m)
+                     , MonadRef m
+                     , Ref m ~ IORef
+                     )
+  => ImmediateCanvasBuilderT c t m a
   -> ImmediateCanvasBuilderEnv c t
   -> m a
-runImmediateCanvasBuilderT renderer (ImmediateCanvasBuilderT m) env = do
+runImmediateCanvasBuilderT (ImmediateCanvasBuilderT m) env = do
   ctx <- RD.unJSContextSingleton <$> RD.askJSContext
-  let renderFn = renderer $ _immediateCanvasBuilderEnv_context env
+  let
+    renderFn = renderFunction (Proxy :: Proxy c)
+      $ _immediateCanvasBuilderEnv_context env
 
-      paintCanvas paints = flip runJSM ctx $ JSDOM.nextAnimationFrame
-        (\_ -> traverse_ renderFn paints )
+    paintCanvas paints = runJSM
+      ( JSDOM.nextAnimationFrame (\_ -> traverse_ renderFn paints ) )
+      ctx
 
   (a, cM) <- runStateT (runReaderT m env) mempty
 
   -- RD.dyn ( paintCanvas <$> cM )
+
   paintCanvas cM
 
   pure a
@@ -297,23 +313,27 @@ withSomeContext
   :: forall c t m. ( RD.MonadWidget t m
                    , KnownSymbol (RenderContextEnum c)
                    , IsRenderingContext (RenderContext c)
+                   , HasRenderFn c
                    )
-  => ( RenderContext c -> CanvasM () -> JSM () )
-  -> CanvasConfig c t
+  => CanvasConfig c t
   -> ImmediateCanvasBuilderT c t m ()
   -> m (CanvasInfo c t)
-withSomeContext renderer cfg canvasActions = do
+withSomeContext cfg canvasActions = do
   let
     reflexEl = cfg ^. canvasConfig_El
     cxType   = symbolVal ( Proxy :: Proxy (RenderContextEnum c) )
 
-    drawFunction ( dele, cx ) = runImmediateCanvasBuilderT renderer canvasActions
+    drawFunction ( dele, cx ) = runImmediateCanvasBuilderT canvasActions
       $ ImmediateCanvasBuilderEnv dele ( coerce cx )
 
-  ( traverse_ drawFunction =<< ) . runMaybeT $ do
-    e <- MaybeT . liftJSM $ fromJSVal =<< toJSVal ( RD._element_raw reflexEl )
-    c <- MaybeT . liftJSM $ HTMLCanvas.getContext e cxType (cfg ^. canvasConfig_Args)
-    pure (e,c)
+  htmlCanvas <- liftJSM $ fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
+  canvasCx <- liftJSM $ HTMLCanvas.getContextUnchecked htmlCanvas cxType (cfg ^. canvasConfig_Args)
+
+  drawFunction (htmlCanvas, canvasCx)
+  -- ( traverse_ drawFunction =<< ) . runMaybeT $ do
+  --   e <- MaybeT . liftJSM $ fromJSVal =<< toJSVal ( RD._element_raw reflexEl )
+  --   c <- MaybeT . liftJSM $ HTMLCanvas.getContext e cxType (cfg ^. canvasConfig_Args)
+  --   pure (e,c)
 
   pure $ CanvasInfo (`RD.keypress` reflexEl) reflexEl
 
@@ -323,7 +343,7 @@ with2DContext
   -> Canvas2DM t m ()
   -> m (CanvasInfo 'TwoD t)
 with2DContext =
-  withSomeContext ( flip CanvasF.drawToCanvas )
+  withSomeContext
 
 withWebGLContext
   :: RD.MonadWidget t m
@@ -331,7 +351,7 @@ withWebGLContext
   -> CanvasWebGLM t m ()
   -> m (CanvasInfo 'Webgl t)
 withWebGLContext =
-  withSomeContext undefined
+  withSomeContext
 
 liftCx2d
   :: ( MonadCanvasConstraints c t m

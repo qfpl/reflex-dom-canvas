@@ -195,7 +195,7 @@ eDraw aTime stdGen = do
 
   eTick <- (() <$) <$> RD.tickLossy 0.016 aTime
 
-  eTicken <- fmap R.switch . R.hold R.never $ R.leftmost
+  eTicken <- fmap R.switch . R.hold eTick $ R.leftmost
     [ eTick   <$ eStart
     , R.never <$ eStop
     ]
