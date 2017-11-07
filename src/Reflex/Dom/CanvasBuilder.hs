@@ -272,10 +272,12 @@ class HasRenderFn a where
   renderFunction :: Proxy a -> RenderContext a -> CanvasM () -> JSM ()
 
 instance HasRenderFn 'TwoD where
-  renderFunction _ = flip CanvasF.drawToCanvas
+  renderFunction _ =
+    flip CanvasF.drawToCanvas
 
 instance HasRenderFn 'Webgl where
-  renderFunction _ = error "webgl render function not implemented"
+  renderFunction _ =
+    error "webgl render function not implemented"
 
 runImmediateCanvasBuilderT
   :: forall c t m a. ( RD.MonadWidget t m
@@ -303,8 +305,6 @@ runImmediateCanvasBuilderT (ImmediateCanvasBuilderT m) env = do
 
   (a, cM) <- runStateT (runReaderT m env) mempty
 
-  -- RD.dyn ( paintCanvas <$> cM )
-
   paintCanvas cM
 
   pure a
@@ -326,14 +326,13 @@ withSomeContext cfg canvasActions = do
     drawFunction ( dele, cx ) = runImmediateCanvasBuilderT canvasActions
       $ ImmediateCanvasBuilderEnv dele ( coerce cx )
 
-  htmlCanvas <- liftJSM $ fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
-  canvasCx <- liftJSM $ HTMLCanvas.getContextUnchecked htmlCanvas cxType (cfg ^. canvasConfig_Args)
+  htmlCanvas <-
+    liftJSM $ fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
+
+  canvasCx <-
+    liftJSM $ HTMLCanvas.getContextUnchecked htmlCanvas cxType (cfg ^. canvasConfig_Args)
 
   drawFunction (htmlCanvas, canvasCx)
-  -- ( traverse_ drawFunction =<< ) . runMaybeT $ do
-  --   e <- MaybeT . liftJSM $ fromJSVal =<< toJSVal ( RD._element_raw reflexEl )
-  --   c <- MaybeT . liftJSM $ HTMLCanvas.getContext e cxType (cfg ^. canvasConfig_Args)
-  --   pure (e,c)
 
   pure $ CanvasInfo (`RD.keypress` reflexEl) reflexEl
 

@@ -213,8 +213,6 @@ eDraw aTime stdGen = do
   RD.el "div" $
     RD.dynText ( ( Text.pack . show ) <$> dDataLines )
 
-  pure ()
-
 -- moveToM,lineToM :: CB.Monad2DCanvas t m => Double -> Double -> m ()
 -- moveToM x y = CB.liftCx (\c -> CR.moveTo c x y )
 -- lineToM x y = CB.liftCx (\c -> CR.lineTo c x y )
