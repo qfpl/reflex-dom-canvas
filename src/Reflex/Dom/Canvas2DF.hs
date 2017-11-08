@@ -15,7 +15,6 @@ module Reflex.Dom.Canvas2DF where
 
 import           Control.Lens                   (makeClassyPrisms, ( # ), (^?),
                                                  _2, _3)
-import           Data.Data                      (Data)
 
 import           Control.Monad.Free             (Free, foldFree, liftF, _Free)
 
@@ -82,7 +81,7 @@ data CanvasF a
   -- | StrokeRect Double Double Double Double a
   -- | DrawImage CanvasImageSource Float Float a
   | Done a
-  deriving (Functor, Foldable, Traversable, Show, Data)
+  deriving (Functor, Foldable, Traversable, Show, Eq)
 makeClassyPrisms ''CanvasF
 
 type CanvasM = Free CanvasF

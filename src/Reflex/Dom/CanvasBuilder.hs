@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP                        #-}
-{-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 
@@ -9,15 +8,13 @@
 {-# LANGUAGE FlexibleInstances          #-}
 {-# LANGUAGE TypeFamilies               #-}
 
-{-# LANGUAGE NoMonomorphismRestriction  #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
-{-# LANGUAGE PolyKinds #-}
+
 -- Sigh, would like to get rid of need for Monad*Control if possible.
 -- Not convinced I need it, added to meet reqs, for now.
 {-# LANGUAGE UndecidableInstances       #-}
 
-{-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Dom.CanvasBuilder
   ( Canvas2DM
   , CanvasWebGLM
@@ -31,9 +28,7 @@ module Reflex.Dom.CanvasBuilder
   , canvasConfig_Args
   , canvasConfig_El
   , with2DContext
-  , withWebGLContext
-  , liftCx
-  -- Experiments !
+  -- , withWebGLContext
   , liftCx2d
   ) where
 
@@ -41,7 +36,7 @@ import           GHC.IORef                      (IORef)
 
 import           Data.Coerce                    (coerce)
 
-import           Control.Lens                   (makeLenses, snoc, (^.), _1, to)
+import           Control.Lens                   (makeLenses, snoc, to, (^.), _1)
 
 #if MIN_VERSION_base(4,9,1)
 import           Control.Monad.Exception        (MonadAsyncException,
@@ -79,9 +74,10 @@ import qualified JSDOM.HTMLCanvasElement        as HTMLCanvas
 import           JSDOM.Types                    (IsRenderingContext, JSM,
                                                  MonadJSM,
                                                  RenderingContext (..),
-                                                 WebGLRenderingContext, fromJSValUnchecked,
-                                                 fromJSVal, liftJSM, runJSM,
-                                                 toJSVal, withCallback)
+                                                 WebGLRenderingContext,
+                                                 fromJSVal, fromJSValUnchecked,
+                                                 liftJSM, runJSM, toJSVal,
+                                                 withCallback)
 
 import qualified JSDOM
 
@@ -106,6 +102,11 @@ instance ( IsRenderingContext (RenderContext c), MonadJSM m ) => MonadJSM (Immed
   liftJSM' = ImmediateCanvasBuilderT . liftJSM'
 #endif
 
+-- | Ideally I think this will contain a Dynamic t X where X will be a suitably
+-- efficient data structure that can track the diffs of rendering actions and
+-- perform only the minimum required actions. THAT SAID... Manipulating someone
+-- elses animation/rendering instructions could lead to WeirdnessTM so, it will
+-- be approached with care. Or just be entirely optional
 newtype ImmediateCanvasBuilderT (c :: ContextType) t m a = ImmediateCanvasBuilderT
   { _unImmediateDomBuilderT :: ReaderT (ImmediateCanvasBuilderEnv c t) (StateT Actions m) a
   }
@@ -122,6 +123,11 @@ newtype ImmediateCanvasBuilderT (c :: ContextType) t m a = ImmediateCanvasBuilde
 #endif
            )
 
+-- | Ideally, all of these instances need to go away as I should be able to lean
+-- on the 'MonadWidget' constraints and not need my own instances. I just need
+-- to think a bit harder about how I've integrated the lifting & context
+-- preservation so that I don't need to re-wrap everything that is already
+-- preserved.
 instance R.PerformEvent t m => R.PerformEvent t (ImmediateCanvasBuilderT (c :: ContextType) t m) where
   type Performable (ImmediateCanvasBuilderT (c :: ContextType) t m) = RD.Performable m
   {-# INLINABLE performEvent_ #-}
@@ -257,7 +263,9 @@ instance ( RD.SupportsImmediateDomBuilder t m
 
 type MonadCanvasConstraints (c :: ContextType) t m =
   ( RD.MonadWidget t m
+  , RD.DomBuilderSpace m ~ RD.GhcjsDomSpace
   , IsRenderingContext (RenderContext c)
+  , HasRenderFn c
   , MonadReader ( ImmediateCanvasBuilderEnv c t ) m
   , MonadState Actions m
   )
@@ -281,31 +289,20 @@ instance HasRenderFn 'Webgl where
 
 runImmediateCanvasBuilderT
   :: forall c t m a. ( RD.MonadWidget t m
-                     , RD.DomBuilderSpace m ~ RD.GhcjsDomSpace
                      , IsRenderingContext (RenderContext c)
                      , HasRenderFn c
-                     , RD.PerformEvent t m
-                     , MonadJSM m
-                     , MonadJSM (RD.Performable m)
-                     , MonadRef m
-                     , Ref m ~ IORef
                      )
   => ImmediateCanvasBuilderT c t m a
   -> ImmediateCanvasBuilderEnv c t
   -> m a
 runImmediateCanvasBuilderT (ImmediateCanvasBuilderT m) env = do
-  ctx <- RD.unJSContextSingleton <$> RD.askJSContext
   let
     renderFn = renderFunction (Proxy :: Proxy c)
       $ _immediateCanvasBuilderEnv_context env
 
-    paintCanvas paints = runJSM
-      ( JSDOM.nextAnimationFrame (\_ -> traverse_ renderFn paints ) )
-      ctx
-
   (a, cM) <- runStateT (runReaderT m env) mempty
 
-  paintCanvas cM
+  liftJSM $ JSDOM.nextAnimationFrame (\_ -> traverse_ renderFn cM )
 
   pure a
 
@@ -323,16 +320,14 @@ withSomeContext cfg canvasActions = do
     reflexEl = cfg ^. canvasConfig_El
     cxType   = symbolVal ( Proxy :: Proxy (RenderContextEnum c) )
 
-    drawFunction ( dele, cx ) = runImmediateCanvasBuilderT canvasActions
-      $ ImmediateCanvasBuilderEnv dele ( coerce cx )
+  htmlCanvas <- liftJSM
+    $ fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
 
-  htmlCanvas <-
-    liftJSM $ fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
+  canvasCx <- liftJSM
+    $ HTMLCanvas.getContextUnchecked htmlCanvas cxType (cfg ^. canvasConfig_Args)
 
-  canvasCx <-
-    liftJSM $ HTMLCanvas.getContextUnchecked htmlCanvas cxType (cfg ^. canvasConfig_Args)
-
-  drawFunction (htmlCanvas, canvasCx)
+  runImmediateCanvasBuilderT canvasActions
+    $ ImmediateCanvasBuilderEnv htmlCanvas ( coerce canvasCx )
 
   pure $ CanvasInfo (`RD.keypress` reflexEl) reflexEl
 
@@ -344,34 +339,47 @@ with2DContext
 with2DContext =
   withSomeContext
 
-withWebGLContext
-  :: RD.MonadWidget t m
-  => CanvasConfig 'Webgl t
-  -> CanvasWebGLM t m ()
-  -> m (CanvasInfo 'Webgl t)
-withWebGLContext =
-  withSomeContext
+-- Renderer not implemented so this will explode, alpha of an alpha's beta.
+-- withWebGLContext
+--   :: RD.MonadWidget t m
+--   => CanvasConfig 'Webgl t
+--   -> CanvasWebGLM t m ()
+--   -> m (CanvasInfo 'Webgl t)
+-- withWebGLContext =
+--   withSomeContext
 
+-- | This uses the Free Monad for building a canvas "action" to be optimised and
+-- rendered at a later time. Not everything is implemented yet, obviously, as I
+-- just need to make sure things work at the moment. This is the structure I
+-- would prefer to build upon. As it provides the ability to wrap everything in
+-- an efficient data structure and enables 'minimal work' to be done each cycle.
+--
+-- It will simply append the action to the stored sequence of CanvasM which are
+-- executed in left -> right order.
 liftCx2d
   :: ( MonadCanvasConstraints c t m
      , IsRenderingContext cx ~ IsRenderingContext (RenderContext c)
      )
   => CanvasM ()
   -> m ()
-liftCx2d = modify
-  -- . fmap
-  . flip snoc
+liftCx2d =
+  modify . flip snoc
 
-liftCx
-  :: ( MonadCanvasConstraints c t m
-     , IsRenderingContext cx ~ IsRenderingContext (RenderContext c)
-     )
-  => (cx -> JSM a)
-  -> m a
-liftCx f = do
-  ctx <- RD.unJSContextSingleton <$> RD.askJSContext
-  canvasCx <- asks _immediateCanvasBuilderEnv_context
-  runJSM (f canvasCx) ctx
+-- | This lift function will execute the canvas functions immediately using the
+-- rendering context for the given canvas configuration. This system is not
+-- ideal as it provides no mechanism for diffing the drawing actions and
+-- performing minimal work. Everything happens everytime, regardless of how this
+-- is spun.
+-- liftCx
+--   :: ( MonadCanvasConstraints c t m
+--      , IsRenderingContext cx ~ IsRenderingContext (RenderContext c)
+--      )
+--   => (cx -> JSM a)
+--   -> m a
+-- liftCx f = do
+--   ctx <- RD.unJSContextSingleton <$> RD.askJSContext
+--   canvasCx <- asks _immediateCanvasBuilderEnv_context
+--   runJSM (f canvasCx) ctx
 
 -- | Example usage of liftCx
 -- createShaderM

@@ -104,20 +104,6 @@ data DataSet = DataSet
   deriving (Show)
 makeLenses ''DataSet
 
-lineInstruction
-  :: Line
-  -> CanvasM ()
-lineInstruction line = do
-  let
-    sigh :: (Float,Float) -> (Double,Double)
-    sigh = over both ( fromRational . toRational )
-
-    f l g =
-      uncurry g (line ^. l . _Point . to sigh)
-
-  f line_start CanvasF.moveToF
-  f line_end CanvasF.lineToF
-
 zeroLine
   :: Line
 zeroLine =
@@ -168,8 +154,7 @@ dDataz _ w limit eNewDataPoint =
 
 eDraw
   :: ( MonadWidget t m
-     , Reflex t
-     , PrimMonad m
+     , PrimMonad m -- How do I discharge this so the user doesn't have to deal with it?
      )
   => UTCTime
   -> StdGen
@@ -213,20 +198,6 @@ eDraw aTime stdGen = do
   RD.el "div" $
     RD.dynText ( ( Text.pack . show ) <$> dDataLines )
 
--- moveToM,lineToM :: CB.Monad2DCanvas t m => Double -> Double -> m ()
--- moveToM x y = CB.liftCx (\c -> CR.moveTo c x y )
--- lineToM x y = CB.liftCx (\c -> CR.lineTo c x y )
-
--- strokeStyleM :: CB.Monad2DCanvas t m => JSDOM.JSString -> m ()
--- strokeStyleM s = CB.liftCx (`CR.setStrokeStyle` s)
-
--- beginPathM,closePathM,strokeM :: CB.Monad2DCanvas t m => m ()
--- beginPathM = CB.liftCx CR.beginPath
--- closePathM = CB.liftCx CR.closePath
--- strokeM    = CB.liftCx CR.stroke
-
--- clearRectM :: CB.Monad2DCanvas t m => Float -> Float -> Float -> Float -> m ()
--- clearRectM x y w h = CB.liftCx (\c -> CR.clearRect c x y w h)
 
 drawToCanvasM
   :: CB.Monad2DCanvas t m
@@ -249,6 +220,21 @@ drawToCanvasM ds = CB.liftCx2d $ do
   CanvasF.closePathF
   CanvasF.strokeStyleF "#000000"
   CanvasF.strokeF
+
+-- moveToM,lineToM :: CB.Monad2DCanvas t m => Double -> Double -> m ()
+-- moveToM x y = CB.liftCx (\c -> CR.moveTo c x y )
+-- lineToM x y = CB.liftCx (\c -> CR.lineTo c x y )
+
+-- strokeStyleM :: CB.Monad2DCanvas t m => JSDOM.JSString -> m ()
+-- strokeStyleM s = CB.liftCx (`CR.setStrokeStyle` s)
+
+-- beginPathM,closePathM,strokeM :: CB.Monad2DCanvas t m => m ()
+-- beginPathM = CB.liftCx CR.beginPath
+-- closePathM = CB.liftCx CR.closePath
+-- strokeM    = CB.liftCx CR.stroke
+
+-- clearRectM :: CB.Monad2DCanvas t m => Float -> Float -> Float -> Float -> m ()
+-- clearRectM x y w h = CB.liftCx (\c -> CR.clearRect c x y w h)
 
 -- drawToCanvasDirect
 --   :: CB.Monad2DCanvas t m
