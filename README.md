@@ -26,3 +26,8 @@ There are no functions implemented for the ``WebGLRenderingContext`` yet, and
 the render function isn't implemented. Also only a bare minimum of the
 ``Canvas2DRenderingContext`` functions have been implemented. Sufficient for
 basic testing, but nothing more.
+
+I'm not convinced I need a monad transformer for this. What I think I need to be
+doing is returning a ``Dynamic t X`` where ``X`` is something that is to be
+filled with ``CanvasM`` type things. That I can draw later... But I don't have a
+full picture in my head of how this will work.

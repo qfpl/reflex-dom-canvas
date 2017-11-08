@@ -9,6 +9,7 @@ import           Control.Lens                   (makeLenses)
 
 import           GHC.TypeLits                   (Symbol)
 
+import           Reflex (Dynamic)
 import qualified Reflex                         as R
 import qualified Reflex.Dom                     as RD
 
@@ -36,11 +37,10 @@ type instance RenderContextEnum 'Webgl = "webgl"
 
 data ImmediateCanvasBuilderEnv (c :: ContextType) t = ImmediateCanvasBuilderEnv
   { _immediateCanvasBuilderEnv_element :: {-# UNPACK #-} !HTMLCanvasElement
-  , _immediateCanvasBuilderEnv_context :: ( RenderContext c )
+  , _immediateCanvasBuilderEnv_context :: RenderContext c
+  , _immediateCanvasBuilderEnv_dynamic :: Dynamic t ( Seq (CanvasM ()) )
   }
-
-type Actions =
-  Seq (CanvasM ())
+makeLenses ''ImmediateCanvasBuilderEnv
 
 data CanvasConfig (c :: ContextType) t = CanvasConfig
   { _canvasConfig_El   :: RD.El t

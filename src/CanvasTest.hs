@@ -178,7 +178,7 @@ eDraw aTime stdGen = do
   canvasEl <- fst <$> RD.elDynAttr' "canvas"
     (Map.insert "id" canvasId <$> canvasAttrs) RD.blank
 
-  eTick <- (() <$) <$> RD.tickLossy 0.016 aTime
+  eTick <- (() <$) <$> RD.tickLossy 0.100 aTime
 
   eTicken <- fmap R.switch . R.hold eTick $ R.leftmost
     [ eTick   <$ eStart
@@ -195,8 +195,12 @@ eDraw aTime stdGen = do
 
   eCanvasDraw <- RD.dyn ( cb . drawToCanvasM <$> dDataLines )
 
-  RD.el "div" $
-    RD.dynText ( ( Text.pack . show ) <$> dDataLines )
+  RD.el "div" $ do
+    RD.text "Max Value: "
+    RD.dynText ( ( Text.pack . show . _dataSet_max ) <$> dDataLines )
+  RD.el "div" $ do
+    RD.text "Min Value: "
+    RD.dynText ( ( Text.pack . show . _dataSet_min ) <$> dDataLines )
 
 
 drawToCanvasM

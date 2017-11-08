@@ -36,7 +36,7 @@ import           GHC.IORef                      (IORef)
 
 import           Data.Coerce                    (coerce)
 
-import           Control.Lens                   (makeLenses, snoc, to, (^.), _1)
+import           Control.Lens                   (makeLenses, views, snoc, mapped, to, (^.), (%~), _1)
 
 #if MIN_VERSION_base(4,9,1)
 import           Control.Monad.Exception        (MonadAsyncException,
@@ -45,7 +45,7 @@ import           Control.Monad.Exception        (MonadAsyncException,
 import           Control.Monad.Exception        (MonadException)
 #endif
 
-import           Control.Monad                  ((<=<))
+import           Control.Monad                  ((<=<), void)
 import           Control.Monad.Primitive        (PrimMonad (..))
 import           Control.Monad.Ref              (MonadAtomicRef (..),
                                                  MonadRef (..), Ref)
@@ -59,8 +59,9 @@ import           Control.Monad.Trans.Control    (MonadTransControl (..),
 
 import           Control.Monad.State            (MonadState, StateT (..),
                                                  evalStateT, modify)
+import           Control.Monad.Trans.Identity   (IdentityT (..))
 
-import           Control.Monad.Reader           (MonadReader, MonadTrans,
+import           Control.Monad.Reader           (MonadReader, MonadTrans, local,
                                                  ReaderT (..), ask, asks, lift)
 import           Control.Monad.Trans.Maybe      (MaybeT (..))
 
@@ -81,7 +82,9 @@ import           JSDOM.Types                    (IsRenderingContext, JSM,
 
 import qualified JSDOM
 
-import           Data.Sequence                  (Seq)
+import           Data.Sequence                  (Seq, (|>))
+
+import           Reflex                         (Dynamic)
 
 import qualified Reflex                         as R
 import qualified Reflex.Dom                     as RD
@@ -102,19 +105,27 @@ instance ( IsRenderingContext (RenderContext c), MonadJSM m ) => MonadJSM (Immed
   liftJSM' = ImmediateCanvasBuilderT . liftJSM'
 #endif
 
+type CanvasDyn t =
+  -- Dynamic t (RD.PatchMap Int (CanvasM ()))
+  Dynamic t (Seq (CanvasM ()))
+
 -- | Ideally I think this will contain a Dynamic t X where X will be a suitably
 -- efficient data structure that can track the diffs of rendering actions and
 -- perform only the minimum required actions. THAT SAID... Manipulating someone
 -- elses animation/rendering instructions could lead to WeirdnessTM so, it will
 -- be approached with care. Or just be entirely optional
 newtype ImmediateCanvasBuilderT (c :: ContextType) t m a = ImmediateCanvasBuilderT
-  { _unImmediateDomBuilderT :: ReaderT (ImmediateCanvasBuilderEnv c t) (StateT Actions m) a
+  { _unImmediateDomBuilderT ::
+      ReaderT
+        (ImmediateCanvasBuilderEnv c t)
+        (StateT (CanvasDyn t) m)
+        a
   }
   deriving ( Functor
            , Applicative
            , Monad
            , MonadReader ( ImmediateCanvasBuilderEnv c t )
-           , MonadState Actions
+           , MonadState ( CanvasDyn t )
            , MonadFix
            , MonadIO
            , MonadException
@@ -234,7 +245,10 @@ instance MonadTrans (ImmediateCanvasBuilderT c t) where
 --   restoreT = defaultRestoreT ImmediateCanvasBuilderT
 
 instance MonadTransControl (ImmediateCanvasBuilderT c t) where
-  type StT ( ImmediateCanvasBuilderT c t ) a = StT (StateT Actions) (StT ( ReaderT ( ImmediateCanvasBuilderEnv c t ) ) a)
+  type StT ( ImmediateCanvasBuilderT c t ) a = StT
+    (StateT (CanvasDyn t))
+    (StT ( ReaderT ( ImmediateCanvasBuilderEnv c t ) ) a)
+
   liftWith = defaultLiftWith2 ImmediateCanvasBuilderT _unImmediateDomBuilderT
   restoreT = defaultRestoreT2 ImmediateCanvasBuilderT
 
@@ -267,7 +281,7 @@ type MonadCanvasConstraints (c :: ContextType) t m =
   , IsRenderingContext (RenderContext c)
   , HasRenderFn c
   , MonadReader ( ImmediateCanvasBuilderEnv c t ) m
-  , MonadState Actions m
+  , MonadState ( CanvasDyn t ) m
   )
 
 type MonadGLCanvas t m = MonadCanvasConstraints 'Webgl t m
@@ -300,10 +314,11 @@ runImmediateCanvasBuilderT (ImmediateCanvasBuilderT m) env = do
     renderFn = renderFunction (Proxy :: Proxy c)
       $ _immediateCanvasBuilderEnv_context env
 
-  (a, cM) <- runStateT (runReaderT m env) mempty
+    nextAnim ins = liftJSM $ JSDOM.nextAnimationFrame
+      (\_ -> traverse_ renderFn ins )
 
-  liftJSM $ JSDOM.nextAnimationFrame (\_ -> traverse_ renderFn cM )
-
+  (a, actions) <- runStateT (runReaderT m env) (_immediateCanvasBuilderEnv_dynamic env)
+  RD.dyn (nextAnim <$> actions)
   pure a
 
 withSomeContext
@@ -326,8 +341,11 @@ withSomeContext cfg canvasActions = do
   canvasCx <- liftJSM
     $ HTMLCanvas.getContextUnchecked htmlCanvas cxType (cfg ^. canvasConfig_Args)
 
+  -- All canvas actions
+  dCanvasActions <- R.holdDyn mempty R.never
+
   runImmediateCanvasBuilderT canvasActions
-    $ ImmediateCanvasBuilderEnv htmlCanvas ( coerce canvasCx )
+    $ ImmediateCanvasBuilderEnv htmlCanvas ( coerce canvasCx ) dCanvasActions
 
   pure $ CanvasInfo (`RD.keypress` reflexEl) reflexEl
 
@@ -363,7 +381,7 @@ liftCx2d
   => CanvasM ()
   -> m ()
 liftCx2d =
-  modify . flip snoc
+  modify . fmap . flip snoc
 
 -- | This lift function will execute the canvas functions immediately using the
 -- rendering context for the given canvas configuration. This system is not
