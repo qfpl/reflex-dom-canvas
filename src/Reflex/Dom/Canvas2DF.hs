@@ -16,7 +16,7 @@ module Reflex.Dom.Canvas2DF where
 import           Control.Lens                   (makeClassyPrisms, ( # ), (^?),
                                                  _2, _3)
 
-import           Control.Monad.Free             (Free, foldFree, liftF, _Free)
+import           Control.Monad.Free             (Free, foldFree, liftF, _Free, iter)
 
 import           JSDOM.CanvasPath               as C
 import           JSDOM.CanvasRenderingContext2D as C
@@ -72,7 +72,7 @@ data CanvasF a
   | ClosePath a
   | StrokeStyle JSString a
   | Stroke a
-  | Clip a
+  | Clip CanvasWindingRule a
   -- | QuadraticCurveTo Double Double Double Double a
   -- | BezierCurveTo Double Double Double Double Double Double a
   -- | Arc Double Double Double Double Double Bool a
@@ -134,44 +134,50 @@ drawToCanvas instructions cxt =
 applyInstruction :: MonadJSM m => C.CanvasRenderingContext2D -> CanvasF a -> m a
 applyInstruction cxt instruction =
   case instruction of
-    Transform a b c d e f cont -> cont <$ C.transform cxt a b c d e f
-    --  SetTransform a b c d e f cont                          -> cont <$ C.setTransform a b c d e f
-    --  Scale x y cont                                         -> cont <$ C.scale x y
-    --  Translate x y cont                                     -> cont <$ C.translate x y
-    --  Rotate angle cont                                      -> cont <$ C.rotate angle
-    Fill rule cont             -> cont <$ C.fill cxt ( Just rule )
-    -- FillRule rule cont         -> cont <$ C.setFillRule cxt rule
-    -- FillStyle style cont       -> cont <$ C.setFillStyle cxt style
-    StrokeStyle style cont     -> cont <$ C.setStrokeStyle cxt style
-    --  GlobalAlpha value cont                                 -> cont <$ C.globalAlpha value
-    --  LineJoin linejoin cont                                 -> cont <$ C.lineJoin linejoin
-    --  LineCap linecap cont                                   -> cont <$ C.lineCap linecap
-    --  MiterLimit limit cont                                  -> cont <$ C.miterLimit limit
-    --  SetLineDash distances cont                             -> cont <$ C.setLineDash distances
-    --  LineDashOffset offset cont                             -> cont <$ C.lineDashOffset offset
-    --  TextAlign alignment cont                               -> cont <$ C.textAlign alignment
-    --  TextBaseline baseline cont                             -> cont <$ C.textBaseline baseline
-    --  LineWidth width cont                                   -> cont <$ C.lineWidth width
-    --  Font font' cont                                        -> cont <$ C.font font'
-    --  MeasureText text cont                                  -> cont <$ C.measureText text
-    FillRect x y w h cont      -> cont <$ C.fillRect cxt x y w h
-    --  FillText text x y cont                                 -> cont <$ C.fillText text x y
-    --  StrokeText text x y cont                               -> cont <$ C.strokeText text x y
-    Stroke cont                -> cont <$ C.stroke cxt
     BeginPath cont             -> cont <$ C.beginPath cxt
-    ClosePath cont             -> cont <$ C.closePath cxt
-    Clip cont                  -> cont <$ C.clip cxt Nothing
-    MoveTo x y cont            -> cont <$ C.moveTo cxt x y
-    LineTo x y cont            -> cont <$ C.lineTo cxt x y
-    --  QuadraticCurveTo cpX cpY endX endY cont                -> cont <$ C.quadraticCurveTo cpX cpY endX endY
-    --  BezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY cont   -> cont <$ C.bezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY
-    --  Arc x y radius startAngle endAngle anticlockwise cont  -> cont <$ C.arc x y radius startAngle endAngle anticlockwise
-    --  ArcTo cp1_X cp1_Y cp2_X cp2_Y radius cont              -> cont <$ C.arcTo cp1_X cp1_Y cp2_X cp2_Y radius
-    Rect x y w h cont          -> cont <$ C.rect cxt x y w h
     ClearRect x y w h cont     -> cont <$ C.clearRect cxt x y w h
+    Clip rule cont             -> cont <$ C.clip cxt (Just rule)
+    ClosePath cont             -> cont <$ C.closePath cxt
+    Fill rule cont             -> cont <$ C.fill cxt ( Just rule )
+    FillRect x y w h cont      -> cont <$ C.fillRect cxt x y w h
+    LineTo x y cont            -> cont <$ C.lineTo cxt x y
+    MoveTo x y cont            -> cont <$ C.moveTo cxt x y
+    Rect x y w h cont          -> cont <$ C.rect cxt x y w h
+    Stroke cont                -> cont <$ C.stroke cxt
     StrokeRect x y w h cont    -> cont <$ C.strokeRect cxt x y w h
-    -- DrawImage img dw dh cont   -> cont <$ C.drawImage cxt img dw dh
+    StrokeStyle style cont     -> cont <$ C.setStrokeStyle cxt style
+    Transform a b c d e f cont -> cont <$ C.transform cxt a b c d e f
+
     Done a                     -> pure a
+
+    --  FillText text x y cont                                -> cont <$ C.fillText text x y
+    --  Font font' cont                                       -> cont <$ C.font font'
+    --  GlobalAlpha value cont                                -> cont <$ C.globalAlpha value
+    --  LineCap linecap cont                                  -> cont <$ C.lineCap linecap
+    --  LineDashOffset offset cont                            -> cont <$ C.lineDashOffset offset
+    --  LineJoin linejoin cont                                -> cont <$ C.lineJoin linejoin
+    --  LineWidth width cont                                  -> cont <$ C.lineWidth width
+    --  MeasureText text cont                                 -> cont <$ C.measureText text
+    --  MiterLimit limit cont                                 -> cont <$ C.miterLimit limit
+    --  Rotate angle cont                                     -> cont <$ C.rotate angle
+    --  Scale x y cont                                        -> cont <$ C.scale x y
+    --  SetLineDash distances cont                            -> cont <$ C.setLineDash distances
+    --  SetTransform a b c d e f cont                         -> cont <$ C.setTransform a b c d e f
+    --  StrokeText text x y cont                              -> cont <$ C.strokeText text x y
+    --  TextAlign alignment cont                              -> cont <$ C.textAlign alignment
+    --  TextBaseline baseline cont                            -> cont <$ C.textBaseline baseline
+    --  Translate x y cont                                    -> cont <$ C.translate x y
+    --  DrawImage img dw dh cont                              -> cont <$ C.drawImage cxt img dw dh
+    --  FillRule rule cont                                    -> cont <$ C.setFillRule cxt rule
+    --  FillStyle style cont                                  -> cont <$ C.setFillStyle cxt style
+    --  Arc x y radius startAngle endAngle anticlockwise cont
+    --    -> cont <$ C.arc x y radius startAngle endAngle anticlockwise
+    --  ArcTo cp1_X cp1_Y cp2_X cp2_Y radius cont
+    --    -> cont <$ C.arcTo cp1_X cp1_Y cp2_X cp2_Y radius
+    --  BezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY cont
+    --    -> cont <$ C.bezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY
+    --  QuadraticCurveTo cpX cpY endX endY cont
+    --    -> cont <$ C.quadraticCurveTo cpX cpY endX endY
 
 
 fillF :: CanvasWindingRule -> CanvasM ()
@@ -192,8 +198,8 @@ beginPathF = liftF $ BeginPath ()
 closePathF :: CanvasM ()
 closePathF = liftF $ ClosePath ()
 
-clipF :: CanvasM ()
-clipF = liftF $ Clip ()
+clipF :: CanvasWindingRule -> CanvasM ()
+clipF rule = liftF $ Clip rule ()
 
 doneF :: CanvasM ()
 doneF = liftF $ Done ()

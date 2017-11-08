@@ -22,7 +22,7 @@ import           JSDOM.Types                    (IsRenderingContext,
                                                  fromJSValUnchecked, liftJSM,
                                                  toJSVal)
 
-import           Reflex                         (Dynamic)
+import           Reflex                         (Event, Dynamic)
 
 import           Reflex.Dom                     (MonadWidget)
 import qualified Reflex.Dom                     as RD
@@ -45,22 +45,22 @@ dCanvasPaint cfg = do
     cxType   = symbolVal ( Proxy :: Proxy (RenderContextEnum c) )
 
   renderFn <- liftJSM $ do
-    e <- fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
+    e  <- fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
     cx <- getContextUnchecked e cxType (cfg ^. canvasConfig_Args)
-    pure (renderFunction (Proxy :: Proxy c) ( coerce cx ))
+    pure $ renderFunction (Proxy :: Proxy c) ( coerce cx )
 
   let
     nextAnim a = liftJSM $
       JSDOM.nextAnimationFrame (\_ -> renderFn a )
 
-  return . pure $ CanvasPaint nextAnim CanvasF.doneF (`RD.keypress` reflexEl)
+  return . pure $ CanvasPaint nextAnim ( pure CanvasF.doneF ) (`RD.keypress` reflexEl)
 
 paintToCanvas
   :: MonadWidget t m
   => CanvasPaint (c :: ContextType) t m
-  -> m ()
+  -> Dynamic t (m ())
 paintToCanvas CanvasPaint {..} =
-  _canvasPaint_paint _canvasPaint_actions
+  _canvasPaint_paint <$> _canvasPaint_actions
 
 dPaint2d
   :: MonadWidget t m

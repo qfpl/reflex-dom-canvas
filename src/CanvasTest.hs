@@ -9,6 +9,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 module CanvasTest (mainish) where
 
+import Control.Monad (join)
 import           Control.Monad.Primitive        (PrimMonad)
 
 import           Control.Lens                   (both, cons, makeLenses,
@@ -214,14 +215,14 @@ eDraw aTime stdGen = do
 
   let
     dCanvasActions =
-      (canvasPaint_actions .~) <$> dShape <*> dCanvas2d
+      (canvasPaint_actions .~ dShape) <$> dCanvas2d
 
     -- dCanvasActions = R.zipDynWith
     --   (\ds -> canvasPaint_actions .~ drawPlotLines ds)
     --   dDataLines
     --   dCanvas2d
 
-  _ <- RD.dyn ( CD.paintToCanvas <$> dCanvasActions )
+  _ <- RD.dyn $ join ( CD.paintToCanvas <$> dCanvasActions )
 
   pure ()
 
