@@ -7,6 +7,7 @@ module Reflex.Dom.CanvasBuilder.Types where
 
 import           Control.Lens                   (makeLenses)
 
+import Data.Proxy (Proxy (..))
 import           GHC.TypeLits                   (Symbol)
 
 import           Reflex (Dynamic)
@@ -16,12 +17,12 @@ import qualified Reflex.Dom                     as RD
 import           JSDOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
 import           JSDOM.HTMLCanvasElement        (HTMLCanvasElement)
 
-import           JSDOM.Types                    (WebGLRenderingContext)
+import           JSDOM.Types                    (WebGLRenderingContext, JSM)
 
 import           Data.Sequence                  (Seq)
 import           Data.Text                      (Text)
 
-import           Reflex.Dom.Canvas2DF           (CanvasM)
+import           Reflex.Dom.Canvas2DF           (CanvasM,drawToCanvas)
 
 data ContextType
   = TwoD
@@ -53,3 +54,21 @@ data CanvasInfo (c :: ContextType) t = CanvasInfo
   , _canvasInfo_El       :: RD.El t
   }
 makeLenses ''CanvasInfo
+
+data CanvasPaint (c :: ContextType) t m = CanvasPaint
+  { _canvasPaint_paint   :: RD.MonadWidget t m => CanvasM () -> m ()
+  , _canvasPaint_actions :: CanvasM ()
+  , _canvasPaint_keyEvent :: RD.Key -> R.Event t ()
+  }
+makeLenses ''CanvasPaint
+
+class HasRenderFn a where
+  renderFunction :: Proxy a -> RenderContext a -> CanvasM () -> JSM ()
+
+instance HasRenderFn 'TwoD where
+  renderFunction _ =
+    flip drawToCanvas
+
+instance HasRenderFn 'Webgl where
+  renderFunction _ =
+    error "webgl render function not implemented"

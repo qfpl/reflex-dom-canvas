@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP                        #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RecordWildCards            #-}
 
 {-# LANGUAGE ConstraintKinds            #-}
 {-# LANGUAGE DataKinds                  #-}
@@ -36,7 +37,7 @@ import           GHC.IORef                      (IORef)
 
 import           Data.Coerce                    (coerce)
 
-import           Control.Lens                   (makeLenses, views, snoc, mapped, to, (^.), (%~), _1)
+import           Control.Lens                   (snoc, (^.))
 
 #if MIN_VERSION_base(4,9,1)
 import           Control.Monad.Exception        (MonadAsyncException,
@@ -45,7 +46,6 @@ import           Control.Monad.Exception        (MonadAsyncException,
 import           Control.Monad.Exception        (MonadException)
 #endif
 
-import           Control.Monad                  ((<=<), void)
 import           Control.Monad.Primitive        (PrimMonad (..))
 import           Control.Monad.Ref              (MonadAtomicRef (..),
                                                  MonadRef (..), Ref)
@@ -58,31 +58,24 @@ import           Control.Monad.Trans.Control    (MonadTransControl (..),
                                                  defaultRestoreT2)
 
 import           Control.Monad.State            (MonadState, StateT (..),
-                                                 evalStateT, modify)
-import           Control.Monad.Trans.Identity   (IdentityT (..))
+                                                 modify)
 
-import           Control.Monad.Reader           (MonadReader, MonadTrans, local,
-                                                 ReaderT (..), ask, asks, lift)
-import           Control.Monad.Trans.Maybe      (MaybeT (..))
+import           Control.Monad.Reader           (MonadReader, MonadTrans,
+                                                 ReaderT (..), ask, lift)
 
 import           Data.Foldable                  (traverse_)
-import           Data.Text                      (Text)
 
-import           JSDOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
-import           JSDOM.HTMLCanvasElement        (HTMLCanvasElement)
 import qualified JSDOM.HTMLCanvasElement        as HTMLCanvas
 
 import           JSDOM.Types                    (IsRenderingContext, JSM,
                                                  MonadJSM,
                                                  RenderingContext (..),
-                                                 WebGLRenderingContext,
-                                                 fromJSVal, fromJSValUnchecked,
-                                                 liftJSM, runJSM, toJSVal,
-                                                 withCallback)
+                                                 fromJSValUnchecked, liftJSM,
+                                                 toJSVal)
 
 import qualified JSDOM
 
-import           Data.Sequence                  (Seq, (|>))
+import           Data.Sequence                  (Seq)
 
 import           Reflex                         (Dynamic)
 
@@ -290,17 +283,6 @@ type Monad2DCanvas t m = MonadCanvasConstraints 'TwoD t m
 type Canvas2DM t m a    = ImmediateCanvasBuilderT 'TwoD t m a
 type CanvasWebGLM t m a = ImmediateCanvasBuilderT 'Webgl t m a
 
-class HasRenderFn a where
-  renderFunction :: Proxy a -> RenderContext a -> CanvasM () -> JSM ()
-
-instance HasRenderFn 'TwoD where
-  renderFunction _ =
-    flip CanvasF.drawToCanvas
-
-instance HasRenderFn 'Webgl where
-  renderFunction _ =
-    error "webgl render function not implemented"
-
 runImmediateCanvasBuilderT
   :: forall c t m a. ( RD.MonadWidget t m
                      , IsRenderingContext (RenderContext c)
@@ -318,7 +300,9 @@ runImmediateCanvasBuilderT (ImmediateCanvasBuilderT m) env = do
       (\_ -> traverse_ renderFn ins )
 
   (a, actions) <- runStateT (runReaderT m env) (_immediateCanvasBuilderEnv_dynamic env)
-  RD.dyn (nextAnim <$> actions)
+
+  _ <- RD.dyn (nextAnim <$> actions)
+
   pure a
 
 withSomeContext

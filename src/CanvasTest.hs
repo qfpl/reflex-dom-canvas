@@ -12,15 +12,15 @@ module CanvasTest (mainish) where
 import           Control.Monad.Primitive        (PrimMonad)
 
 import           Control.Lens                   (both, cons, makeLenses,
-                                                 makePrisms, mapped, over, snoc,
-                                                 to, traverseOf_, uncons,
-                                                 unsnoc, view, (%~), (&), (+~),
-                                                 (.~), (^.), _1, _2)
+                                                 makePrisms, over, to,
+                                                 traverseOf_, uncons, unsnoc,
+                                                 (%~), (&), (+~), (.~), (^.),
+                                                 _1, _2)
 
 import           Control.Monad.Fix              (MonadFix)
 
 import           Reflex                         (Dynamic, Event, MonadHold,
-                                                 Reflex, (<@), (<@>))
+                                                 Reflex, (<@))
 import           Reflex.Dom                     (MonadWidget)
 
 import qualified Reflex                         as R
@@ -28,8 +28,6 @@ import qualified Reflex.Dom                     as RD
 
 import           Data.Text                      (Text)
 import qualified Data.Text                      as Text
-
-import           Data.Foldable                  (traverse_)
 
 import           Data.Time                      (UTCTime, getCurrentTime)
 
@@ -41,17 +39,13 @@ import qualified System.Random                  as Rnd
 
 import qualified Data.Map                       as Map
 
-import qualified JSDOM
-import qualified JSDOM.Element                  as JSDOM
-import qualified JSDOM.NonElementParentNode     as DOM
 import qualified JSDOM.Types                    as JSDOM
 
-import qualified JSDOM.CanvasPath               as CR
-import qualified JSDOM.CanvasRenderingContext2D as CR
-
-import           Reflex.Dom.Canvas2DF           (CanvasM)
 import qualified Reflex.Dom.Canvas2DF           as CanvasF
 import qualified Reflex.Dom.CanvasBuilder       as CB
+import           Reflex.Dom.CanvasBuilder.Types (canvasPaint_actions)
+
+import qualified Reflex.Dom.CanvasDyn as CD
 
 #ifndef ghcjs_HOST_OS
 import qualified Run
@@ -190,10 +184,20 @@ eDraw aTime stdGen = do
   dDataLines <- dDataz canvasH canvasW dataN
     $ R.current dFloatFeed' <@ eTicken
 
-  let
-    cb = CB.with2DContext ( CB.CanvasConfig canvasEl mempty )
+  dCanvas2d <- CD.dPaint2d ( CB.CanvasConfig canvasEl mempty )
 
-  eCanvasDraw <- RD.dyn ( cb . drawToCanvasM <$> dDataLines )
+  let
+    dCanvasActions = R.zipDynWith
+      (\ds -> canvasPaint_actions .~ drawPlotLines ds)
+      dDataLines
+      dCanvas2d
+
+  eCanvasDraw <- RD.dyn ( CD.paintToCanvas <$> dCanvasActions )
+
+  -- let
+  --   cb = CB.with2DContext ( CB.CanvasConfig canvasEl mempty )
+
+  -- eCanvasDraw <- RD.dyn ( cb . drawToCanvasM <$> dDataLines )
 
   RD.el "div" $ do
     RD.text "Max Value: "
@@ -202,12 +206,17 @@ eDraw aTime stdGen = do
     RD.text "Min Value: "
     RD.dynText ( ( Text.pack . show . _dataSet_min ) <$> dDataLines )
 
-
 drawToCanvasM
   :: CB.Monad2DCanvas t m
   => DataSet
   -> m ()
-drawToCanvasM ds = CB.liftCx2d $ do
+drawToCanvasM =
+  CB.liftCx2d . drawPlotLines
+
+drawPlotLines
+  :: DataSet
+  -> CanvasF.CanvasM ()
+drawPlotLines ds = do
   let
     sigh :: (Float,Float) -> (Double,Double)
     sigh = over both ( fromRational . toRational )
