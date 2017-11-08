@@ -44,18 +44,16 @@ dCanvasPaint cfg = do
     reflexEl = cfg ^. canvasConfig_El
     cxType   = symbolVal ( Proxy :: Proxy (RenderContextEnum c) )
 
-  htmlCanvas <- liftJSM
-    $ fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
-
-  canvasCx <- liftJSM
-    $ getContextUnchecked htmlCanvas cxType (cfg ^. canvasConfig_Args)
+  renderFn <- liftJSM $ do
+    e <- fromJSValUnchecked =<< toJSVal ( RD._element_raw reflexEl )
+    cx <- getContextUnchecked e cxType (cfg ^. canvasConfig_Args)
+    pure (renderFunction (Proxy :: Proxy c) ( coerce cx ))
 
   let
-    nextAnim a = liftJSM $ JSDOM.nextAnimationFrame
-      (\_ -> renderFunction (Proxy :: Proxy c) ( coerce canvasCx ) a)
+    nextAnim a = liftJSM $
+      JSDOM.nextAnimationFrame (\_ -> renderFn a )
 
-  return . pure $ CanvasPaint nextAnim CanvasF.doneF
-    (`RD.keypress` reflexEl)
+  return . pure $ CanvasPaint nextAnim CanvasF.doneF (`RD.keypress` reflexEl)
 
 paintToCanvas
   :: MonadWidget t m

@@ -21,6 +21,7 @@ import           Control.Monad.Free             (Free, foldFree, liftF, _Free)
 import           JSDOM.CanvasPath               as C
 import           JSDOM.CanvasRenderingContext2D as C
 
+import JSDOM.Enums (CanvasWindingRule)
 import           JSDOM.Types                    (JSString, MonadJSM)
 
 -- Disallow because we want to control this externally
@@ -48,7 +49,7 @@ data CanvasF a
   -- | Scale Double Double a
   -- | Translate Double Double a
   -- | Rotate Double a
-  | Fill a
+  | Fill CanvasWindingRule a
   -- | FillRule JSString a
   -- | FillStyle CanvasStyle a
   -- | GlobalAlpha Double a
@@ -78,7 +79,7 @@ data CanvasF a
   -- | ArcTo Double Double Double Double Double a
   | Rect Double Double Double Double a
   | ClearRect Float Float Float Float a
-  -- | StrokeRect Double Double Double Double a
+  | StrokeRect Float Float Float Float a
   -- | DrawImage CanvasImageSource Float Float a
   | Done a
   deriving (Functor, Foldable, Traversable, Show, Eq)
@@ -138,8 +139,8 @@ applyInstruction cxt instruction =
     --  Scale x y cont                                         -> cont <$ C.scale x y
     --  Translate x y cont                                     -> cont <$ C.translate x y
     --  Rotate angle cont                                      -> cont <$ C.rotate angle
-    Fill cont                  -> cont <$ C.fill cxt Nothing
-    --  FillRule rule cont                                     -> cont <$ C.fillRule rule
+    Fill rule cont             -> cont <$ C.fill cxt ( Just rule )
+    -- FillRule rule cont         -> cont <$ C.setFillRule cxt rule
     -- FillStyle style cont       -> cont <$ C.setFillStyle cxt style
     StrokeStyle style cont     -> cont <$ C.setStrokeStyle cxt style
     --  GlobalAlpha value cont                                 -> cont <$ C.globalAlpha value
@@ -168,10 +169,16 @@ applyInstruction cxt instruction =
     --  ArcTo cp1_X cp1_Y cp2_X cp2_Y radius cont              -> cont <$ C.arcTo cp1_X cp1_Y cp2_X cp2_Y radius
     Rect x y w h cont          -> cont <$ C.rect cxt x y w h
     ClearRect x y w h cont     -> cont <$ C.clearRect cxt x y w h
-    --  StrokeRect x y w h cont                                -> cont <$ C.strokeRect x y w h
+    StrokeRect x y w h cont    -> cont <$ C.strokeRect cxt x y w h
     -- DrawImage img dw dh cont   -> cont <$ C.drawImage cxt img dw dh
     Done a                     -> pure a
 
+
+fillF :: CanvasWindingRule -> CanvasM ()
+fillF rule = liftF $ Fill rule ()
+
+-- setFillRuleF :: JSString -> CanvasM ()
+-- setFillRuleF fillrule = liftF $ FillRule fillrule ()
 
 strokeF :: CanvasM ()
 strokeF = liftF $ Stroke ()
@@ -197,8 +204,11 @@ moveToF x y = liftF $ MoveTo x y ()
 lineToF :: Double -> Double -> CanvasM ()
 lineToF x y = liftF $ LineTo x y ()
 
-clearRectF :: Float -> Float -> Float -> Float -> CanvasM ()
-clearRectF x y w h = liftF $ ClearRect x y w h ()
+clearRectF, fillRectF, strokeRectF :: Float -> Float -> Float -> Float -> CanvasM ()
+clearRectF x y w h  = liftF $ ClearRect x y w h ()
+fillRectF x y w h   = liftF $ FillRect x y w h ()
+strokeRectF x y w h = liftF $ StrokeRect x y w h ()
+
 
 drawOneLine
   :: Free CanvasF ()

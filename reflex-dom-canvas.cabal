@@ -22,7 +22,7 @@ library
   -- other-extensions:
 
   if impl(ghcjs -any)
-    ghc-options:        -Wall -dedupe 
+    ghc-options:        -Wall -O2 -dedupe 
     cpp-options:        -DGHCJS_BROWSER
   else
     ghc-options:        -Wall
@@ -72,7 +72,7 @@ executable             reflex-dom-canvas-exe
   main-is:             Main.hs
 
   if impl(ghcjs -any)
-    ghc-options:       -Wall -dedupe
+    ghc-options:       -Wall -O2 -dedupe
     cpp-options:       -DGHCJS_BROWSER
   else
     ghc-options:       -Wall

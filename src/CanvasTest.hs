@@ -40,6 +40,7 @@ import qualified System.Random                  as Rnd
 import qualified Data.Map                       as Map
 
 import qualified JSDOM.Types                    as JSDOM
+import qualified JSDOM.Enums                    as JSEnums
 
 import qualified Reflex.Dom.Canvas2DF           as CanvasF
 import qualified Reflex.Dom.CanvasBuilder       as CB
@@ -147,9 +148,7 @@ dDataz _ w limit eNewDataPoint =
     addNewDataPoint n _ (Just (h', t)) = keepFixedSeq limit (newLine n h') (cons h' t)
 
 eDraw
-  :: ( MonadWidget t m
-     , PrimMonad m -- How do I discharge this so the user doesn't have to deal with it?
-     )
+  :: MonadWidget t m
   => UTCTime
   -> StdGen
   -> m ()
@@ -165,46 +164,78 @@ eDraw aTime stdGen = do
       , ("width", "640")
       ]
 
-  eStart <- RD.button "Start"
-  eStop  <- RD.button "Stop"
+  -- eStart <- RD.button "Start"
+  -- eStop  <- RD.button "Stop"
 
   -- Create the canvas element
   canvasEl <- fst <$> RD.elDynAttr' "canvas"
     (Map.insert "id" canvasId <$> canvasAttrs) RD.blank
 
-  eTick <- (() <$) <$> RD.tickLossy 0.100 aTime
+  -- eTick <- (() <$) <$> RD.tickLossy 0.100 aTime
 
-  eTicken <- fmap R.switch . R.hold eTick $ R.leftmost
-    [ eTick   <$ eStart
-    , R.never <$ eStop
-    ]
+  -- eTicken <- fmap R.switch . R.hold eTick $ R.leftmost
+  --   [ eTick   <$ eStart
+  --   , R.never <$ eStop
+  --   ]
 
-  dFloatFeed' <- dFloatFeed ( 0.0, 450.0 ) stdGen eTicken
+  -- dFloatFeed' <- dFloatFeed ( 0.0, 450.0 ) stdGen eTicken
 
-  dDataLines <- dDataz canvasH canvasW dataN
-    $ R.current dFloatFeed' <@ eTicken
+  -- dDataLines <- dDataz canvasH canvasW dataN
+  --   $ R.current dFloatFeed' <@ eTicken
 
   dCanvas2d <- CD.dPaint2d ( CB.CanvasConfig canvasEl mempty )
 
   let
-    dCanvasActions = R.zipDynWith
-      (\ds -> canvasPaint_actions .~ drawPlotLines ds)
-      dDataLines
-      dCanvas2d
+    x = canvasW / 2
+    y = canvasH / 2
 
-  eCanvasDraw <- RD.dyn ( CD.paintToCanvas <$> dCanvasActions )
+    cSquare = do
+      CanvasF.clearRectF 0.0 0.0 canvasW canvasH
+      CanvasF.fillRectF x y 100.0 100.0
+      CanvasF.clearRectF  (x + 20.0) (y + 20.0) 60.0 60.0
+      CanvasF.strokeRectF (x + 25.0) (y + 25.0) 50.0 50.0
+
+    cTriangle = do
+      CanvasF.clearRectF 0.0 0.0 canvasW canvasH
+      CanvasF.beginPathF
+      CanvasF.moveToF 50.0 75.0
+      CanvasF.lineToF 100.0 25.0
+      CanvasF.lineToF 100.0 75.0
+      CanvasF.closePathF
+      CanvasF.fillF JSEnums.CanvasWindingRuleNonzero
+
+  eSquare <- RD.button "Square"
+  eTriangle <- RD.button "Triangle"
+
+  dShape <- R.holdDyn cTriangle $ R.leftmost
+    [ cSquare <$ eSquare
+    , cTriangle <$ eTriangle
+    ]
+
+  let
+    dCanvasActions =
+      (canvasPaint_actions .~) <$> dShape <*> dCanvas2d
+
+    -- dCanvasActions = R.zipDynWith
+    --   (\ds -> canvasPaint_actions .~ drawPlotLines ds)
+    --   dDataLines
+    --   dCanvas2d
+
+  _ <- RD.dyn ( CD.paintToCanvas <$> dCanvasActions )
+
+  pure ()
 
   -- let
   --   cb = CB.with2DContext ( CB.CanvasConfig canvasEl mempty )
 
   -- eCanvasDraw <- RD.dyn ( cb . drawToCanvasM <$> dDataLines )
 
-  RD.el "div" $ do
-    RD.text "Max Value: "
-    RD.dynText ( ( Text.pack . show . _dataSet_max ) <$> dDataLines )
-  RD.el "div" $ do
-    RD.text "Min Value: "
-    RD.dynText ( ( Text.pack . show . _dataSet_min ) <$> dDataLines )
+  -- RD.el "div" $ do
+  --   RD.text "Max Value: "
+  --   RD.dynText ( ( Text.pack . show . _dataSet_max ) <$> dDataLines )
+  -- RD.el "div" $ do
+  --   RD.text "Min Value: "
+  --   RD.dynText ( ( Text.pack . show . _dataSet_min ) <$> dDataLines )
 
 drawToCanvasM
   :: CB.Monad2DCanvas t m
