@@ -16,10 +16,8 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Reflex.Dom.CanvasBuilder,
-                       Reflex.Dom.Canvas2DF,
-                       CanvasTest
-  -- other-extensions:
+  exposed-modules:     Reflex.Dom.Canvas2DF
+                     , Reflex.Dom.CanvasDyn
 
   if impl(ghcjs -any)
     ghc-options:        -Wall -O2 -dedupe 
@@ -46,6 +44,7 @@ library
                      , primitive == 0.6.*
                      , ref-tf == 0.4.*
                      , monad-control == 1.*
+                     , comonad == 5.*
 
   if !impl(ghcjs -any)
     build-depends:
@@ -69,7 +68,7 @@ executable             reflex-dom-canvas-exe
                      , reflex-dom-canvas
                      , jsaddle-dom
   hs-source-dirs:      exe
-  main-is:             Main.hs
+  main-is:             CanvasTest2D.hs
 
   if impl(ghcjs -any)
     ghc-options:       -Wall -O2 -dedupe

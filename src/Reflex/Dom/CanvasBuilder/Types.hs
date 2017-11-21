@@ -24,6 +24,8 @@ import           Data.Text                      (Text)
 
 import           Reflex.Dom.Canvas2DF           (CanvasM,drawToCanvas)
 
+import Reflex.Dom.Canvas.WebGL
+
 data ContextType
   = TwoD
   | Webgl
@@ -56,8 +58,8 @@ data CanvasInfo (c :: ContextType) t = CanvasInfo
 makeLenses ''CanvasInfo
 
 data CanvasPaint (c :: ContextType) t m = CanvasPaint
-  { _canvasPaint_paint    :: RD.MonadWidget t m => CanvasM () -> m ()
-  , _canvasPaint_actions  :: RD.Dynamic t ( CanvasM () )
+  { _canvasPaint_paint    :: RD.PerformEvent t m => CanvasM () -> RD.Performable m ()
+  , _canvasPaint_actions  :: CanvasM ()
   , _canvasPaint_keyEvent :: RD.Key -> R.Event t ()
   }
 makeLenses ''CanvasPaint

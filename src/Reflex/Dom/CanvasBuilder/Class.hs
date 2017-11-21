@@ -1,6 +1,74 @@
+{-# LANGUAGE CPP                        #-}
+{-# LANGUAGE ConstraintKinds            #-}
+{-# LANGUAGE DataKinds                  #-}
+{-# LANGUAGE FlexibleContexts           #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE TemplateHaskell            #-}
+{-# LANGUAGE TypeFamilies               #-}
+--
+{-# LANGUAGE UndecidableInstances       #-}
+
 module Reflex.Dom.CanvasBuilder.Class where
 
-import Reflex.Dom.CanvasBuilder.Types
+import qualified Reflex                         as R
+import qualified Reflex.Dom                     as RD
+import qualified Reflex.Host.Class              as R
+
+import           Data.Proxy
+import           GHC.TypeLits
+
+import           Reflex.Dom.Canvas2DF           (CanvasM, drawToCanvas)
+import           Reflex.Dom.CanvasBuilder.Types
+
+import           GHC.IORef                      (IORef)
+
+import           Data.Sequence                  (Seq)
+
+import           Data.Coerce                    (coerce)
+
+import           Control.Lens                   (makeLenses, snoc, (^.), _1)
+
+#if MIN_VERSION_base(4,9,1)
+import           Control.Monad.Exception        (MonadAsyncException,
+                                                 MonadException)
+#else
+import           Control.Monad.Exception        (MonadException)
+#endif
+
+import           Control.Monad                  ((<=<))
+import           Control.Monad.Primitive        (PrimMonad (..))
+import           Control.Monad.Ref              (MonadAtomicRef (..),
+                                                 MonadRef (..), Ref)
+
+import           Control.Monad.Fix              (MonadFix)
+import           Control.Monad.IO.Class         (MonadIO)
+
+import           Control.Monad.Trans.Control    (MonadTransControl (..),
+                                                 defaultLiftWith2,
+                                                 defaultRestoreT2)
+
+import           Control.Monad.State            (MonadState, StateT (..),
+                                                 evalStateT, modify)
+
+import           Control.Monad.Reader           (MonadReader, MonadTrans,
+                                                 ReaderT (..), ask, asks, lift)
+import           Control.Monad.Trans.Maybe      (MaybeT (..))
+
+import           Data.Foldable                  (traverse_)
+import           Data.Text                      (Text)
+
+import           JSDOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
+import           JSDOM.HTMLCanvasElement        (HTMLCanvasElement)
+import qualified JSDOM.HTMLCanvasElement        as HTMLCanvas
+
+import           JSDOM.Types                    (IsRenderingContext, JSM,
+                                                 MonadJSM,
+                                                 RenderingContext (..),
+                                                 WebGLRenderingContext,
+                                                 fromJSVal, liftJSM, runJSM,
+                                                 toJSVal)
 
 #ifndef ghcjs_HOST_OS
 import           GHCJS.DOM.Types                (MonadJSM (..))
@@ -129,6 +197,10 @@ instance MonadTrans (ImmediateCanvasBuilderT c t) where
 --   liftWith = defaultLiftWith ImmediateCanvasBuilderT _unImmediateDomBuilderT
 --   restoreT = defaultRestoreT ImmediateCanvasBuilderT
 
+type Actions =
+  -- Seq (RenderContext c -> JSM ())
+  Seq (CanvasM ())
+
 instance MonadTransControl (ImmediateCanvasBuilderT c t) where
   type StT ( ImmediateCanvasBuilderT c t ) a = StT (StateT Actions) (StT ( ReaderT ( ImmediateCanvasBuilderEnv c t ) ) a)
   liftWith = defaultLiftWith2 ImmediateCanvasBuilderT _unImmediateDomBuilderT
@@ -187,18 +259,6 @@ runImmediateCanvasBuilderT (ImmediateCanvasBuilderT m) env = do
 
   (cM, as) <- runStateT (runReaderT m env) mempty
 
-  runJSM ( traverse_ (`CanvasF.drawToCanvas` canvasCx) as ) ctx
+  runJSM ( traverse_ (`drawToCanvas` canvasCx) as ) ctx
 
   pure cM
-
-data CanvasConfig (c :: ContextType) t = CanvasConfig
-  { _canvasConfig_El   :: RD.El t
-  , _canvasConfig_Args :: [Text]
-  }
-makeLenses ''CanvasConfig
-
-data CanvasInfo (c :: ContextType) t = CanvasInfo
-  { _canvasInfo_keyEvent :: RD.Key -> R.Event t ()
-  , _canvasInfo_El       :: RD.El t
-  }
-makeLenses ''CanvasInfo

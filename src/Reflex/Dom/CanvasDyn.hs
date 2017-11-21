@@ -22,7 +22,8 @@ import           JSDOM.Types                    (IsRenderingContext,
                                                  fromJSValUnchecked, liftJSM,
                                                  toJSVal)
 
-import           Reflex                         (Event, Dynamic)
+import           Reflex                         (Event, Dynamic, (<@))
+import qualified Reflex as R
 
 import           Reflex.Dom                     (MonadWidget)
 import qualified Reflex.Dom                     as RD
@@ -53,21 +54,27 @@ dCanvasPaint cfg = do
     nextAnim a = liftJSM $
       JSDOM.nextAnimationFrame (\_ -> renderFn a )
 
-  return . pure $ CanvasPaint nextAnim ( pure CanvasF.doneF ) (`RD.keypress` reflexEl)
+  return . pure $ CanvasPaint nextAnim CanvasF.doneF (`RD.keypress` reflexEl)
 
 paintToCanvas
   :: MonadWidget t m
-  => CanvasPaint (c :: ContextType) t m
-  -> Dynamic t (m ())
-paintToCanvas CanvasPaint {..} =
-  _canvasPaint_paint <$> _canvasPaint_actions
+  => Event t ( CanvasPaint (c :: ContextType) t m )
+  -> m (Event t ())
+paintToCanvas ePaint =
+  let
+    applyPaint cp =
+      _canvasPaint_paint cp (_canvasPaint_actions cp)
+  in
+    RD.performEvent ( applyPaint <$> ePaint )
 
+{-# INLINE dPaint2d #-}
 dPaint2d
   :: MonadWidget t m
   => CanvasConfig 'TwoD t
   -> m (Dynamic t (CanvasPaint 'TwoD t m))
 dPaint2d = dCanvasPaint
 
+{-# INLINE dPaintWebgl #-}
 dPaintWebgl
   :: MonadWidget t m
   => CanvasConfig 'Webgl t

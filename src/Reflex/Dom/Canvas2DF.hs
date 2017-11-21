@@ -16,12 +16,12 @@ module Reflex.Dom.Canvas2DF where
 import           Control.Lens                   (makeClassyPrisms, ( # ), (^?),
                                                  _2, _3)
 
-import           Control.Monad.Free             (Free, foldFree, liftF, _Free, iter)
+import           Control.Monad.Free.Church      (F, foldF, iter, liftF)
 
 import           JSDOM.CanvasPath               as C
 import           JSDOM.CanvasRenderingContext2D as C
 
-import JSDOM.Enums (CanvasWindingRule)
+import           JSDOM.Enums                    (CanvasWindingRule)
 import           JSDOM.Types                    (JSString, MonadJSM)
 
 -- Disallow because we want to control this externally
@@ -74,7 +74,7 @@ data CanvasF a
   | Stroke a
   | Clip CanvasWindingRule a
   -- | QuadraticCurveTo Double Double Double Double a
-  -- | BezierCurveTo Double Double Double Double Double Double a
+  -- | BezierCurveTo Doub But I might start building something a bit bigger than just little shapes or le Double Double Double Double Double a
   -- | Arc Double Double Double Double Double Bool a
   -- | ArcTo Double Double Double Double Double a
   | Rect Double Double Double Double a
@@ -85,10 +85,10 @@ data CanvasF a
   deriving (Functor, Foldable, Traversable, Show, Eq)
 makeClassyPrisms ''CanvasF
 
-type CanvasM = Free CanvasF
+type CanvasM = F CanvasF
 
-instance AsCanvasF (CanvasM a) (CanvasM a) where
-  _CanvasF = _Free
+-- instance AsCanvasF (CanvasM a) (CanvasM a) where
+--   _CanvasF = _Free
 
 -- Canvas doesn't always play well with floating point coordinates, according to:
 -- https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas
@@ -112,8 +112,8 @@ instance AsCanvasF (CanvasM a) (CanvasM a) where
 -- [ BeginPath [MoveTo,LineTo] ClosePath ] ( StrokeStyle StyleX ) Stroke
 --
 batchDrawInstructions
-  :: Free CanvasF a
-  -> Free CanvasF a
+  :: F CanvasF a
+  -> F CanvasF a
 batchDrawInstructions =
   error "batchDrawInstructions not implemented"
 
@@ -125,11 +125,11 @@ findDrawBounds =
 
 drawToCanvas
   :: MonadJSM m
-  => Free CanvasF a
+  => F CanvasF a
   -> C.CanvasRenderingContext2D
   -> m a
 drawToCanvas instructions cxt =
-  foldFree ( applyInstruction cxt ) instructions
+  foldF ( applyInstruction cxt ) instructions
 
 applyInstruction :: MonadJSM m => C.CanvasRenderingContext2D -> CanvasF a -> m a
 applyInstruction cxt instruction =
@@ -183,9 +183,6 @@ applyInstruction cxt instruction =
 fillF :: CanvasWindingRule -> CanvasM ()
 fillF rule = liftF $ Fill rule ()
 
--- setFillRuleF :: JSString -> CanvasM ()
--- setFillRuleF fillrule = liftF $ FillRule fillrule ()
-
 strokeF :: CanvasM ()
 strokeF = liftF $ Stroke ()
 
@@ -217,7 +214,7 @@ strokeRectF x y w h = liftF $ StrokeRect x y w h ()
 
 
 drawOneLine
-  :: Free CanvasF ()
+  :: F CanvasF ()
 drawOneLine = do
   beginPathF
   moveToF 10 10
@@ -257,7 +254,7 @@ batchLineDraw s = do
                 _StrokeStyle # (sStyle1, _Stroke # tail')))))))
 
 drawMoreLinePoorly
-  :: Free CanvasF ()
+  :: F CanvasF ()
 drawMoreLinePoorly = do
   let sty = "#0FF"
   beginPathF
