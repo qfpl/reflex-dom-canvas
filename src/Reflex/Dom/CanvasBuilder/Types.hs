@@ -1,30 +1,30 @@
-{-# LANGUAGE DataKinds        #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE TemplateHaskell  #-}
-{-# LANGUAGE TypeFamilies     #-}
-{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE RankNTypes            #-}
+{-# LANGUAGE TemplateHaskell       #-}
+{-# LANGUAGE TypeFamilies          #-}
 module Reflex.Dom.CanvasBuilder.Types where
 
 import           Control.Lens                   (makeLenses)
 
-import Data.Proxy (Proxy (..))
+import           Data.Proxy                     (Proxy (..))
 import           GHC.TypeLits                   (Symbol)
 
-import           Reflex (Dynamic)
 import qualified Reflex                         as R
 import qualified Reflex.Dom                     as RD
 
 import           JSDOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
-import           JSDOM.HTMLCanvasElement        (HTMLCanvasElement)
 
-import           JSDOM.Types                    (WebGLRenderingContext, JSM)
+import           JSDOM.Types                    (JSM, WebGLRenderingContext, IsRenderingContext)
 
-import           Data.Sequence                  (Seq)
 import           Data.Text                      (Text)
 
-import           Reflex.Dom.Canvas2DF           (CanvasM,drawToCanvas)
+import           Reflex.Dom.Canvas.WebGL        (WebGLM)
+import qualified Reflex.Dom.Canvas.WebGL        as GL
 
-import Reflex.Dom.Canvas.WebGL
+import           Reflex.Dom.Canvas2DF           (CanvasM)
+import qualified Reflex.Dom.Canvas2DF           as TwoD
 
 data ContextType
   = TwoD
@@ -38,12 +38,16 @@ type family RenderContextEnum (a :: ContextType) :: Symbol
 type instance RenderContextEnum 'TwoD  = "2d"
 type instance RenderContextEnum 'Webgl = "webgl"
 
-data ImmediateCanvasBuilderEnv (c :: ContextType) t = ImmediateCanvasBuilderEnv
-  { _immediateCanvasBuilderEnv_element :: {-# UNPACK #-} !HTMLCanvasElement
-  , _immediateCanvasBuilderEnv_context :: RenderContext c
-  , _immediateCanvasBuilderEnv_dynamic :: Dynamic t ( Seq (CanvasM ()) )
-  }
-makeLenses ''ImmediateCanvasBuilderEnv
+type family RenderFree (a :: ContextType) :: * -> *
+type instance RenderFree 'TwoD  = CanvasM
+type instance RenderFree 'Webgl = WebGLM
+
+-- data ImmediateCanvasBuilderEnv (c :: ContextType) t = ImmediateCanvasBuilderEnv
+--   { _immediateCanvasBuilderEnv_element :: {-# UNPACK #-} !HTMLCanvasElement
+--   , _immediateCanvasBuilderEnv_context :: RenderContext c
+--   , _immediateCanvasBuilderEnv_dynamic :: Dynamic t ( Seq (CanvasM ()) )
+--   }
+-- makeLenses ''ImmediateCanvasBuilderEnv
 
 data CanvasConfig (c :: ContextType) t = CanvasConfig
   { _canvasConfig_El   :: RD.El t
@@ -57,20 +61,17 @@ data CanvasInfo (c :: ContextType) t = CanvasInfo
   }
 makeLenses ''CanvasInfo
 
-data CanvasPaint (c :: ContextType) t m = CanvasPaint
-  { _canvasPaint_paint    :: RD.PerformEvent t m => CanvasM () -> RD.Performable m ()
-  , _canvasPaint_actions  :: CanvasM ()
+data CanvasPaint (c :: ContextType) t m a = CanvasPaint
+  { _canvasPaint_paint    :: RD.PerformEvent t m => RenderFree c a -> RD.Performable m a
   , _canvasPaint_keyEvent :: RD.Key -> R.Event t ()
   }
 makeLenses ''CanvasPaint
 
 class HasRenderFn a where
-  renderFunction :: Proxy a -> RenderContext a -> CanvasM () -> JSM ()
+  renderFunction :: Proxy a -> RenderContext a -> RenderFree a b -> JSM b
 
 instance HasRenderFn 'TwoD where
-  renderFunction _ =
-    flip drawToCanvas
+  renderFunction _ = flip TwoD.drawToCanvas
 
 instance HasRenderFn 'Webgl where
-  renderFunction _ =
-    error "webgl render function not implemented"
+  renderFunction _ = flip GL.drawToCanvas

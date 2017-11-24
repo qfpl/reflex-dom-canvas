@@ -1,25 +1,35 @@
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DeriveFunctor         #-}
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 module Reflex.Dom.Canvas.WebGL where
 
-import           JSDOM.Types               (BufferSource, GLboolean, GLclampf,
-                                            GLenum, GLfloat, GLint, GLintptr,
-                                            GLsizei, GLuint, IsBufferSource,
-                                            JSString, JSVal, ToJSString (..),
-                                            WebGLBuffer, WebGLProgram, MonadJSM,
-                                            WebGLShader, WebGLUniformLocation,
-                                            toBufferSource)
+import           JSDOM.Types                     (BufferDataSource, FromJSVal,
+                                                  GLboolean, GLclampf, GLenum,
+                                                  GLfloat, GLint, GLintptr,
+                                                  GLsizei, GLuint,
+                                                  IsBufferDataSource, JSString,
+                                                  JSVal, MonadJSM,
+                                                  ToJSString (..), WebGLBuffer,
+                                                  WebGLProgram, WebGLShader,
+                                                  WebGLUniformLocation,
+                                                  fromJSVal, liftJSM,
+                                                  toBufferDataSource)
 
-import qualified JSDOM.WebGLRenderingContextBase as W
+import           Data.Either                     (Either (..))
+import           Data.Maybe                      (fromMaybe)
+import           Data.Text                       (Text)
+
+import qualified JSDOM.WebGLRenderingContextBase as WebGL
 
 import           Control.Monad.Free.Church
 
 -- my my, aren't shaders and programs similar...PREPARE THE WIFFLE BAT OF TYPE SAFETY.
 data WebGLF a
   -- Shader Mangling
-  = CreateShader GLenum a
+  = CreateShader GLenum (WebGLShader -> a)
   | ShaderSource WebGLShader JSString a
   | CompileShader WebGLShader a
   | GetShaderParameter WebGLShader GLenum (JSVal -> a)
@@ -27,7 +37,7 @@ data WebGLF a
   | DeleteShader WebGLShader a
 
   -- Program Mangling
-  | CreateProgram a
+  | CreateProgram (WebGLProgram -> a)
   | AttachShader WebGLProgram WebGLShader a
   | LinkProgram WebGLProgram a
   | GetProgramParameter WebGLProgram GLenum (JSVal -> a)
@@ -48,7 +58,7 @@ data WebGLF a
   -- Buffers
   | CreateBuffer (WebGLBuffer -> a)
   | BindBuffer GLenum WebGLBuffer a
-  | BufferData GLenum BufferSource GLenum a
+  | BufferData GLenum BufferDataSource GLenum a
 
   -- Viewport
   | Viewport GLint GLint GLsizei GLsizei a
@@ -59,6 +69,12 @@ data WebGLF a
 
   -- Get Busy
   | DrawArrays GLenum GLint GLsizei a
+
+  -- Reading JS values
+  | ReadJSBool Bool JSVal (Bool -> a)
+
+  --
+  | Noop a
   deriving Functor
 
 type WebGLM = F WebGLF
@@ -68,6 +84,13 @@ liftF' = liftF . ($ id)
 
 liftF_ :: MonadFree WebGLF m => (() -> WebGLF ()) -> m ()
 liftF_ = liftF . ($ ())
+
+noopF :: MonadFree WebGLF m => m ()
+noopF = liftF_ Noop
+
+-- Reading JS Values
+readJSBoolF :: MonadFree WebGLF m => Bool -> JSVal -> m Bool
+readJSBoolF d = liftF' . ReadJSBool d
 
 -- Get Busy
 
@@ -97,14 +120,14 @@ bindBufferF gle = liftF_ . BindBuffer gle
 
 bufferDataF
   :: ( MonadFree WebGLF m
-     , IsBufferSource bufferSource
+     , IsBufferDataSource buff
      )
   => GLenum
-  -> bufferSource
+  -> buff
   -> GLenum
   -> m ()
 bufferDataF gle1 buff =
-  liftF_ . BufferData gle1 ( toBufferSource buff )
+  liftF_ . BufferData gle1 ( toBufferDataSource buff )
 
 -- Uniforms
 
@@ -165,8 +188,8 @@ vertexAttribPointerF index size type' normalized stride =
   liftF_ . VertexAttribPointer index size type' normalized stride
 
 -- Programs
-createProgramF :: MonadFree WebGLF m => m ()
-createProgramF = liftF_ CreateProgram
+createProgramF :: MonadFree WebGLF m => m WebGLProgram
+createProgramF = liftF' CreateProgram
 
 attachShaderF :: MonadFree WebGLF m => WebGLProgram -> WebGLShader -> m ()
 attachShaderF p = liftF_ . AttachShader p
@@ -187,8 +210,8 @@ useProgramF :: MonadFree WebGLF m => WebGLProgram -> m ()
 useProgramF = liftF_ . UseProgram
 
 -- Shaders
-createShaderF :: MonadFree WebGLF m => GLenum -> m ()
-createShaderF = liftF_ . CreateShader
+createShaderF :: MonadFree WebGLF m => GLenum -> m WebGLShader
+createShaderF = liftF' . CreateShader
 
 shaderSourceF :: ( MonadFree WebGLF m, ToJSString string ) => WebGLShader -> string -> m ()
 shaderSourceF shdr = liftF_ . ShaderSource shdr . toJSString
@@ -205,40 +228,101 @@ getShaderInfoLogF = liftF' . GetShaderInfoLog
 deleteShaderF :: MonadFree WebGLF m => WebGLShader -> m ()
 deleteShaderF = liftF_ . DeleteShader
 
--- data CoWebGLF k = CoWebGLF
---   { createShader            :: GLenum -> k
---   , shaderSource            :: WebGLShader -> JSString -> k
---   , compileShader           :: WebGLShader -> k
---   , getShaderParameter      :: WebGLShader -> GLenum -> (JSVal, k)
---   , getShaderLogInfo        :: WebGLShader -> (Maybe JSString, k)
---   , deleteShader            :: WebGLShader -> k
---   -- Programs
---   , createProgram           :: k
---   , attachShader            :: WebGLProgram -> WebGLShader -> k
---   , linkProgram             :: WebGLProgram -> k
---   , getProgramParameter     :: WebGLProgram -> GLenum -> (JSVal, k)
---   , getProgramInfoLog       :: WebGLProgram -> (Maybe JSString, k)
---   , deleteProgram           :: WebGLProgram -> k
---   , useProgram              :: WebGLProgram -> k
---   , getAttribLocation       :: WebGLProgram -> JSString -> (GLint, k)
---   , enableVertexAttribArray :: GLuint -> k
---   , vertexAttribPointer     :: GLuint -> GLint -> GLenum -> GLboolean -> GLsizei -> GLintptr -> k
---   -- Uniforms
---   , getUniformLocation      :: WebGLProgram -> JSString -> (WebGLUniformLocation, k)
---   , uniform2f               :: WebGLUniformLocation -> GLfloat -> GLfloat -> k
---   , uniform4f               :: WebGLUniformLocation -> GLfloat -> GLfloat -> GLfloat -> GLfloat -> k
---   -- Buffers
---   , createBuffer            :: WebGLBuffer -> k
---   , bindBuffer              :: GLenum -> WebGLBuffer -> k
---   , bufferData              :: GLenum -> BufferSource -> GLenum -> k
---   -- Viewport
---   , viewport                :: GLint -> GLint -> GLsizei -> GLsizei -> k
---   -- Colour
---   , clearColour             :: GLclampf -> GLclampf -> GLclampf -> GLclampf -> k
---   , clear                   :: GLenum -> k
---   -- Get Busy
---   , drawArrays              :: GLenum -> GLint -> GLsizei -> k
---   }
---   deriving Functor
+buildShader
+  :: MonadFree WebGLF m
+  => Text
+  -> GLenum
+  -> m (Either JSString WebGLShader)
+buildShader src sType = do
+  let defErr = "Unknown Shader Compilation Error Occurred!"
+  s <- createShaderF sType
+  shaderSourceF s src
+  compileShaderF s
+  compileOkay <- readJSBoolF False =<<
+    getShaderParameterF s WebGL.COMPILE_STATUS
+  if compileOkay
+    then pure (Right s)
+    else getShaderInfoLogF s >>= pure . Left . fromMaybe defErr
 
+buildProgram
+  :: MonadFree WebGLF m
+  => WebGLShader
+  -> WebGLShader
+  -> m ( Either JSString WebGLProgram )
+buildProgram vert frag = do
+  let defErr = "Unknown Program Linking Error Occurred"
+  p <- createProgramF
+  attachShaderF p vert
+  attachShaderF p frag
+  linkProgramF p
+  linkOkay <- readJSBoolF False =<<
+    getProgramParameterF p WebGL.LINK_STATUS
+  if linkOkay
+    then pure (Right p)
+    else getProgramInfoLogF p >>= pure . Left . fromMaybe defErr
+
+drawToCanvas
+  :: ( WebGL.IsWebGLRenderingContextBase cx, MonadJSM m )
+  => F WebGLF a
+  -> cx
+  -> m a
+drawToCanvas instructions cxt =
+  foldF ( applyInstruction cxt ) instructions
+
+applyInstruction
+  :: ( WebGL.IsWebGLRenderingContextBase cx
+     , MonadJSM m
+     )
+  => cx
+  -> WebGLF a
+  -> m a
+applyInstruction cxt instruction = liftJSM $
+  case instruction of
+    -- Shader Mangling
+    CreateShader glE cont              -> cont <$> WebGL.createShader cxt glE
+    ShaderSource shader src cont       -> cont <$  WebGL.shaderSource cxt ( Just shader ) src
+    CompileShader shader cont          -> cont <$  WebGL.compileShader cxt ( Just shader )
+    GetShaderParameter shader gle cont -> cont <$> WebGL.getShaderParameter cxt ( Just shader ) gle
+    GetShaderInfoLog shader cont       -> cont <$> WebGL.getShaderInfoLog cxt ( Just shader )
+    DeleteShader shader cont           -> cont <$  WebGL.deleteShader cxt ( Just shader )
+
+      -- Program Mangling
+    CreateProgram cont                     -> cont <$> WebGL.createProgram cxt
+    AttachShader glProgram shader cont     -> cont <$  WebGL.attachShader cxt ( Just glProgram ) ( Just shader )
+    LinkProgram glProgram cont             -> cont <$  WebGL.linkProgram cxt ( Just glProgram )
+    GetProgramParameter glProgram gle cont -> cont <$> WebGL.getProgramParameter cxt ( Just glProgram ) gle
+    GetProgramInfoLog glProgram cont       -> cont <$> WebGL.getProgramInfoLog cxt ( Just glProgram )
+    DeleteProgram glProgram cont           -> cont <$  WebGL.deleteProgram cxt ( Just glProgram )
+    UseProgram glProgram cont              -> cont <$  WebGL.useProgram cxt ( Just glProgram )
+
+      -- Attribbles
+    GetAttribLocation glProgram loc cont -> cont <$> WebGL.getAttribLocation cxt ( Just glProgram ) loc
+    EnableVertexAttribArray arrLoc cont  -> cont <$  WebGL.enableVertexAttribArray cxt arrLoc
+    VertexAttribPointer arrLoc size dataType normalise stride offset cont ->
+      cont <$ WebGL.vertexAttribPointer cxt arrLoc size dataType normalise stride offset
+
+      -- Uniforms
+    GetUniformLocation glProgram loc cont -> cont <$> WebGL.getUniformLocation cxt ( Just glProgram ) loc
+    Uniform2f unifLoc a b cont            -> cont <$ WebGL.uniform2f cxt ( Just unifLoc ) a b
+    Uniform4f unifLoc a b c d cont        -> cont <$ WebGL.uniform4f cxt ( Just unifLoc ) a b c d
+
+      -- Buffers
+    CreateBuffer cont                           -> cont <$> WebGL.createBuffer cxt
+    BindBuffer buffType buff cont               -> cont <$ WebGL.bindBuffer cxt buffType ( Just buff )
+    BufferData buffType buffData buffUsage cont -> cont <$ WebGL.bufferData cxt buffType ( Just buffData ) buffUsage
+
+      -- Viewport
+    Viewport x y w h cont -> cont <$ WebGL.viewport cxt x y w h
+
+      -- Colour
+    ClearColour r g b a cont -> cont <$ WebGL.clearColor cxt r g b a
+    Clear bit cont           -> cont <$ WebGL.clear cxt bit
+
+      -- Get Busy
+    DrawArrays primType offset count cont -> cont <$ WebGL.drawArrays cxt primType offset count
+
+      -- Reading JS values
+    ReadJSBool defBool inp cont -> cont . fromMaybe defBool <$> fromJSVal inp
+
+    Noop cont -> pure cont
 

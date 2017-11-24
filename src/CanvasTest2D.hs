@@ -10,6 +10,9 @@
 {-# LANGUAGE TypeFamilies          #-}
 module CanvasTest2D (mainish) where
 
+-- Welp
+import CanvasTest3D
+
 import           Control.Lens                   (Lens', both, cons, makeLenses,
                                                  makePrisms, over, to, uncons,
                                                  unsnoc, (%~), (&), (+~), (.~),

@@ -18,6 +18,9 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Reflex.Dom.Canvas2DF
                      , Reflex.Dom.CanvasDyn
+                     , Reflex.Dom.CanvasBuilder.Types
+                     , Reflex.Dom.Canvas.WebGL
+                     , CanvasTest3D
 
   if impl(ghcjs -any)
     ghc-options:        -Wall -O2 -dedupe 
@@ -66,9 +69,9 @@ executable             reflex-dom-canvas-exe
 
   build-depends:       base >=4.9 && < 4.10
                      , reflex-dom-canvas
-                     , jsaddle-dom
+
   hs-source-dirs:      exe
-  main-is:             CanvasTest2D.hs
+  main-is:             Main.hs
 
   if impl(ghcjs -any)
     ghc-options:       -Wall -O2 -dedupe
