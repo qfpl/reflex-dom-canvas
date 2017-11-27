@@ -176,18 +176,18 @@ eDraw aTime = do
     (Map.insert "id" canvasId <$> canvasAttrs) RD.blank
 
   dGLCX <- fmap (^. Canvas.canvasInfo_context)
-    <$> CDyn.dPaintWebgl ( Canvas.CanvasConfig canvasEl [] )
+    <$> CDyn.dContextWebgl ( Canvas.CanvasConfig canvasEl [] )
 
   let
     dInitProg =
       pure $ glProgramInit vertShader fragShader
 
   (eInitFailed, eRenderMeh) <-
-    R.fanEither <$> CDyn.drawGL dInitProg dGLCX eInit
+    R.fanEither <$> CDyn.drawCanvasFree dInitProg dGLCX eInit
 
   dInstructions <- R.holdDyn Gl.noopF ( glDraw arrBuffer <$> eRenderMeh )
 
-  eDrawn <- CDyn.drawGL dInstructions dGLCX eRender
+  eDrawn <- CDyn.drawCanvasFree dInstructions dGLCX eRender
 
   dStatus <- R.holdDyn "A little nothing..." eInitFailed
 

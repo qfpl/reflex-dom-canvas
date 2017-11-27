@@ -1,14 +1,14 @@
-{-# LANGUAGE DataKinds             #-}
-{-# LANGUAGE FlexibleContexts      #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE RankNTypes            #-}
-{-# LANGUAGE TemplateHaskell       #-}
-{-# LANGUAGE TypeFamilies          #-}
+{-# LANGUAGE DataKinds              #-}
+{-# LANGUAGE FlexibleContexts       #-}
+{-# LANGUAGE MultiParamTypeClasses  #-}
+{-# LANGUAGE RankNTypes             #-}
+{-# LANGUAGE TemplateHaskell        #-}
+{-# LANGUAGE TypeFamilies           #-}
 --
 {-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Dom.CanvasBuilder.Types where
 
-import Data.IORef (IORef)
+import           Data.IORef                     (IORef)
 
 import           Control.Lens                   (makeLenses)
 
@@ -20,15 +20,16 @@ import qualified Reflex.Dom                     as RD
 
 import           JSDOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
 
-import           JSDOM.Types                    (JSM, WebGLRenderingContext, IsRenderingContext)
+import           JSDOM.Types                    (IsRenderingContext, JSM,
+                                                 WebGLRenderingContext)
 
 import           Data.Text                      (Text)
 
 import           Reflex.Dom.Canvas.WebGL        (WebGLM)
 import qualified Reflex.Dom.Canvas.WebGL        as GL
 
-import           Reflex.Dom.Canvas.Context2D           (CanvasM)
-import qualified Reflex.Dom.Canvas.Context2D           as TwoD
+import           Reflex.Dom.Canvas.Context2D    (CanvasM)
+import qualified Reflex.Dom.Canvas.Context2D    as TwoD
 
 data ContextType
   = TwoD

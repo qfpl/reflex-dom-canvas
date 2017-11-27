@@ -29,8 +29,8 @@ import qualified Data.Text                      as Text
 
 import           Data.Foldable                  (traverse_)
 
-import           Reflex.Dom.Canvas.Context2D           (CanvasM)
-import qualified Reflex.Dom.Canvas.Context2D           as CanvasF
+import           Reflex.Dom.Canvas.Context2D    (CanvasM)
+import qualified Reflex.Dom.Canvas.Context2D    as CanvasF
 
 import qualified Reflex.Dom.CanvasBuilder.Types as Canvas
 import qualified Reflex.Dom.CanvasDyn           as CDyn
@@ -49,7 +49,7 @@ import qualified Data.Map                       as Map
 import qualified Run
 #endif
 
-import qualified Utils.ArbitraryDataFeed as AF
+import qualified Utils.ArbitraryDataFeed        as AF
 
 eDraw
   :: MonadWidget t m
@@ -76,7 +76,8 @@ eDraw aTime stdGen = do
     (Map.insert "id" canvasId <$> canvasAttrs) RD.blank
 
   -- Create our canvas painter, will be restricted to 'context2d' because of the types! :D
-  d2D <- fmap (^. Canvas.canvasInfo_context) <$> CDyn.dPaintContext2d ( Canvas.CanvasConfig canvasEl [] )
+  d2D <- fmap (^. Canvas.canvasInfo_context)
+    <$> CDyn.dContext2d ( Canvas.CanvasConfig canvasEl [] )
 
   eTick <- RD.tickLossy 0.016 aTime
 
@@ -102,7 +103,7 @@ eDraw aTime stdGen = do
     dLines =
       ( ^. AF.dataSet_lines . to toCM ) <$> dDataLines
 
-  _ <- CDyn.drawContext2d dLines d2D eTicken
+  _ <- CDyn.drawCanvasFree dLines d2D eTicken
 
   RD.el "div" $
     RD.dynText ( ( Text.pack . show ) <$> dDataLines )

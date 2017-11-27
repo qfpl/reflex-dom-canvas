@@ -7,10 +7,9 @@
 {-# LANGUAGE MultiParamTypeClasses #-}
 
 module Reflex.Dom.CanvasDyn
-  ( dPaintContext2d
-  , dPaintWebgl
-  , drawGL
-  , drawContext2d
+  ( dContext2d
+  , dContextWebgl
+  , drawCanvasFree
   , drawWithCx
   ) where
 
@@ -38,9 +37,8 @@ import           Reflex.Dom.CanvasBuilder.Types
 dCanvasCx
   :: forall c cx t m. ( MonadWidget t m
                       , KnownSymbol (RenderContextEnum c)
-                      , cx ~ RenderContext c
-                      , IsRenderingContext cx
-                      , HasRenderFn c cx
+                      , IsRenderingContext (RenderContext c)
+                      , HasRenderFn c (RenderContext c)
                       )
   => CanvasConfig c t
   -> m ( Dynamic t ( CanvasInfo c t ) )
@@ -56,11 +54,9 @@ dCanvasCx cfg = do
   return . pure $ CanvasInfo reflexEl ( coerce renderCx ) (`RD.keypress` reflexEl)
 
 drawCanvasFree
-  :: forall t m c cx a. ( MonadWidget t m
-                        , cx ~ RenderContext c
-                        , IsRenderingContext cx
-                        , HasRenderFn c cx
-                        )
+  :: ( MonadWidget t m
+     , HasRenderFn c cx
+     )
   => Dynamic t ( RenderFree c a )
   -> Dynamic t ( RenderContext c )
   -> Event t ()
@@ -79,8 +75,6 @@ drawCanvasFree dInstructions dContext eDraw =
 
 drawWithCx
   :: ( MonadWidget t m
-     , MonadJSM m
-     , IsRenderingContext ( RenderContext c )
      , HasRenderFn c ( RenderContext c )
      )
   => Dynamic t ( RenderContext c )
@@ -99,32 +93,14 @@ drawWithCx dContext dAction eApply =
       <@ eApply
     )
 
-dPaintContext2d
+dContext2d
   :: MonadWidget t m
   => CanvasConfig 'TwoD t
   -> m ( Dynamic t ( CanvasInfo 'TwoD t ) )
-dPaintContext2d = dCanvasCx
+dContext2d = dCanvasCx
 
-dPaintWebgl
+dContextWebgl
   :: MonadWidget t m
   => CanvasConfig 'Webgl t
   -> m ( Dynamic t ( CanvasInfo 'Webgl t ) )
-dPaintWebgl = dCanvasCx
-
-drawGL
-  :: MonadWidget t m
-  => Dynamic t ( RenderFree 'Webgl a )
-  -> Dynamic t ( RenderContext 'Webgl )
-  -> Event t ()
-  -> m (Event t a)
-drawGL =
-  drawCanvasFree
-
-drawContext2d
-  :: MonadWidget t m
-  => Dynamic t ( RenderFree 'TwoD a )
-  -> Dynamic t ( RenderContext 'TwoD )
-  -> Event t ()
-  -> m (Event t a)
-drawContext2d =
-  drawCanvasFree
+dContextWebgl = dCanvasCx
