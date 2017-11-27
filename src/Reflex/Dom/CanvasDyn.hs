@@ -68,8 +68,7 @@ drawCanvasFree
 drawCanvasFree dInstructions dContext eDraw =
   let
     nextFrame cx ins = liftJSM $
-      JSDOM.nextAnimationFrame
-        (\_ -> renderFunction (Proxy :: Proxy c) cx ins )
+      JSDOM.nextAnimationFrame (\_ -> renderFunction cx ins )
   in
     RD.performEvent
     ( nextFrame

@@ -59,11 +59,13 @@ data CanvasInfo (c :: ContextType) t = CanvasInfo
   }
 makeLenses ''CanvasInfo
 
-class HasRenderFn a c | a -> c, c -> a where
-  renderFunction :: Proxy a -> RenderContext a -> RenderFree a b -> JSM b
+-- Should this be a more useful typeclass that contains the references to
+-- the symbols etc so I can avoid the type family shenanigans ?
+class IsRenderingContext c ~ IsRenderingContext (RenderContext a) => HasRenderFn a c | a -> c, c -> a where
+  renderFunction :: c -> RenderFree a b -> JSM b
 
 instance HasRenderFn 'TwoD CanvasRenderingContext2D where
-  renderFunction _ = flip TwoD.drawToCanvas
+  renderFunction = flip TwoD.drawToCanvas
 
 instance HasRenderFn 'Webgl WebGLRenderingContext where
-  renderFunction _ = flip GL.drawToCanvas
+  renderFunction = flip GL.drawToCanvas
