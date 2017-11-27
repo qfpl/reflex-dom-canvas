@@ -3,42 +3,45 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE ScopedTypeVariables   #-}
 {-# LANGUAGE TypeFamilies          #-}
+--
+{-# LANGUAGE MultiParamTypeClasses #-}
 
 module Reflex.Dom.CanvasDyn
   ( dPaintContext2d
   , dPaintWebgl
   , drawGL
   , drawContext2d
+  , drawWithCx
   ) where
 
-import           Control.Lens                   ((^.))
-import           Data.Coerce                    (coerce)
-import           Data.Proxy                     (Proxy (..))
-import           GHC.TypeLits                   (KnownSymbol, symbolVal)
+import           Control.Lens                    ((^.))
+import           Data.Coerce                     (coerce)
+import           Data.Proxy                      (Proxy (..))
+import           GHC.TypeLits                    (KnownSymbol, symbolVal)
 
 import qualified JSDOM
-import           JSDOM.HTMLCanvasElement        (getContextUnchecked)
-import           JSDOM.Types                    (IsRenderingContext, JSM,
-                                                 RenderingContext (..),
-                                                 fromJSValUnchecked, liftJSM,
-                                                 toJSVal)
+import           JSDOM.HTMLCanvasElement         (getContextUnchecked)
+import           JSDOM.Types                     (IsRenderingContext, JSM,
+                                                  MonadJSM,
+                                                  RenderingContext (..),
+                                                  fromJSValUnchecked, liftJSM,
+                                                  toJSVal)
 
-import JSDOM.WebGLRenderingContextBase (WebGLRenderingContextBase)
+import           Reflex                          (Dynamic, Event, (<@))
+import qualified Reflex                          as R
 
-import           Reflex                         (Event, Dynamic, (<@))
-import qualified Reflex as R
-
-import           Reflex.Dom                     (MonadWidget)
-import qualified Reflex.Dom                     as RD
+import           Reflex.Dom                      (MonadWidget)
+import qualified Reflex.Dom                      as RD
 
 import           Reflex.Dom.CanvasBuilder.Types
 
 dCanvasCx
-  :: forall c t m. ( MonadWidget t m
-                   , KnownSymbol (RenderContextEnum c)
-                   , IsRenderingContext (RenderContext c)
-                   , HasRenderFn c
-                   )
+  :: forall c cx t m. ( MonadWidget t m
+                      , KnownSymbol (RenderContextEnum c)
+                      , cx ~ RenderContext c
+                      , IsRenderingContext cx
+                      , HasRenderFn c cx
+                      )
   => CanvasConfig c t
   -> m ( Dynamic t ( CanvasInfo c t ) )
 dCanvasCx cfg = do
@@ -52,6 +55,51 @@ dCanvasCx cfg = do
 
   return . pure $ CanvasInfo reflexEl ( coerce renderCx ) (`RD.keypress` reflexEl)
 
+drawCanvasFree
+  :: forall t m c cx a. ( MonadWidget t m
+                        , cx ~ RenderContext c
+                        , IsRenderingContext cx
+                        , HasRenderFn c cx
+                        )
+  => Dynamic t ( RenderFree c a )
+  -> Dynamic t ( RenderContext c )
+  -> Event t ()
+  -> m (Event t a)
+drawCanvasFree dInstructions dContext eDraw =
+  let
+    nextFrame cx ins = liftJSM $
+      JSDOM.nextAnimationFrame
+        (\_ -> renderFunction (Proxy :: Proxy c) cx ins )
+  in
+    RD.performEvent
+    ( nextFrame
+      <$> R.current dContext
+      <*> R.current dInstructions
+      <@  eDraw
+    )
+
+drawWithCx
+  :: ( MonadWidget t m
+     , MonadJSM m
+     , IsRenderingContext ( RenderContext c )
+     , HasRenderFn c ( RenderContext c )
+     )
+  => Dynamic t ( RenderContext c )
+  -> Dynamic t ( RenderContext c -> Double -> JSM a )
+  -> Event t ()
+  -> m ( Event t a )
+drawWithCx dContext dAction eApply =
+  let
+    nextFrame f cx = liftJSM $
+      JSDOM.nextAnimationFrame (f cx)
+  in
+    RD.performEvent
+    ( nextFrame
+      <$> R.current dAction
+      <*> R.current dContext
+      <@ eApply
+    )
+
 dPaintContext2d
   :: MonadWidget t m
   => CanvasConfig 'TwoD t
@@ -64,49 +112,14 @@ dPaintWebgl
   -> m ( Dynamic t ( CanvasInfo 'Webgl t ) )
 dPaintWebgl = dCanvasCx
 
--- What I want to write... Not enough info about 'c', so I can't.
--- drawCanvasFree
---   :: ( MonadWidget t m
---      , HasRenderFn c
---      , IsRenderingContext ( RenderContext c ) ~ IsRenderingContext cx
---      )
---   => Dynamic t ( RenderFree c a )
---   -> Dynamic t ( RenderContext c )
---   -> Event t ()
---   -> m (Event t a)
--- drawCanvasFree dInstructions dContext eDraw =
---   let
---     rndr = renderFunction (Proxy :: Proxy c)
-
---     nextFrame cx ins = liftJSM $
---       JSDOM.nextAnimationFrame (\_ ->  rndr cx ins )
---   in
---     RD.performEvent
---     ( nextFrame
---       <$> R.current dContext
---       <*> R.current dInstructions
---       <@  eDraw
---     )
-
 drawGL
   :: MonadWidget t m
   => Dynamic t ( RenderFree 'Webgl a )
   -> Dynamic t ( RenderContext 'Webgl )
   -> Event t ()
   -> m (Event t a)
-drawGL dInstructions dContext eDraw =
-  let
-    rndr = renderFunction (Proxy :: Proxy 'Webgl)
-
-    nextFrame cx ins = liftJSM $
-      JSDOM.nextAnimationFrame (\_ ->  rndr cx ins )
-  in
-    RD.performEvent
-    ( nextFrame
-      <$> R.current dContext
-      <*> R.current dInstructions
-      <@  eDraw
-    )
+drawGL =
+  drawCanvasFree
 
 drawContext2d
   :: MonadWidget t m
@@ -114,52 +127,5 @@ drawContext2d
   -> Dynamic t ( RenderContext 'TwoD )
   -> Event t ()
   -> m (Event t a)
-drawContext2d dInstructions dContext eDraw =
-  let
-    rndr = renderFunction (Proxy :: Proxy 'TwoD)
-
-    nextFrame cx ins = liftJSM $
-      JSDOM.nextAnimationFrame (\_ ->  rndr cx ins )
-  in
-    RD.performEvent
-    ( nextFrame
-      <$> R.current dContext
-      <*> R.current dInstructions
-      <@  eDraw
-    )
-
-  -- let
-  --   rndr = renderFunction (Proxy::Proxy 'Webgl)
-
-  --   nextFrame cx ins = liftJSM $
-  --     JSDOM.nextAnimationFrame (\_ ->  rndr cx ins )
-  -- in
-  --   RD.performEvent
-  --   ( nextFrame
-  --     <$> R.current dContext
-  --     <*> R.current dInstructions
-  --     <@  eDraw
-  --   )
-
--- applyToCanvasOn
---   :: MonadWidget t m
---   => RenderFree c a
---   -> Event t ( CanvasPaint (c :: ContextType) t m a )
---   -> m (Event t a)
--- applyToCanvasOn instructions ePaint =
---   let
---     applyPaint cp =
---       _canvasPaint_paint cp instructions
---   in
---     RD.performEvent ( applyPaint <$> ePaint )
-
--- paintToCanvas
---   :: MonadWidget t m
---   => Event t ( CanvasPaint (c :: ContextType) t m (), RenderFree c () )
---   -> m ()
--- paintToCanvas ePaint =
---   let
---     applyPaint (cp, ins) =
---       _canvasPaint_paint cp ins
---   in
---     RD.performEvent_ ( applyPaint <$> ePaint )
+drawContext2d =
+  drawCanvasFree

@@ -4,6 +4,8 @@
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TemplateHaskell       #-}
 {-# LANGUAGE TypeFamilies          #-}
+--
+{-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Dom.CanvasBuilder.Types where
 
 import Data.IORef (IORef)
@@ -25,8 +27,8 @@ import           Data.Text                      (Text)
 import           Reflex.Dom.Canvas.WebGL        (WebGLM)
 import qualified Reflex.Dom.Canvas.WebGL        as GL
 
-import           Reflex.Dom.Canvas2DF           (CanvasM)
-import qualified Reflex.Dom.Canvas2DF           as TwoD
+import           Reflex.Dom.Canvas.Context2D           (CanvasM)
+import qualified Reflex.Dom.Canvas.Context2D           as TwoD
 
 data ContextType
   = TwoD
@@ -44,13 +46,6 @@ type family RenderFree (a :: ContextType) :: * -> *
 type instance RenderFree 'TwoD  = CanvasM
 type instance RenderFree 'Webgl = WebGLM
 
--- data ImmediateCanvasBuilderEnv (c :: ContextType) t = ImmediateCanvasBuilderEnv
---   { _immediateCanvasBuilderEnv_element :: {-# UNPACK #-} !HTMLCanvasElement
---   , _immediateCanvasBuilderEnv_context :: RenderContext c
---   , _immediateCanvasBuilderEnv_dynamic :: Dynamic t ( Seq (CanvasM ()) )
---   }
--- makeLenses ''ImmediateCanvasBuilderEnv
-
 data CanvasConfig (c :: ContextType) t = CanvasConfig
   { _canvasConfig_El   :: RD.El t
   , _canvasConfig_Args :: [Text]
@@ -64,11 +59,11 @@ data CanvasInfo (c :: ContextType) t = CanvasInfo
   }
 makeLenses ''CanvasInfo
 
-class HasRenderFn a where
+class HasRenderFn a c | a -> c, c -> a where
   renderFunction :: Proxy a -> RenderContext a -> RenderFree a b -> JSM b
 
-instance HasRenderFn 'TwoD where
+instance HasRenderFn 'TwoD CanvasRenderingContext2D where
   renderFunction _ = flip TwoD.drawToCanvas
 
-instance HasRenderFn 'Webgl where
+instance HasRenderFn 'Webgl WebGLRenderingContext where
   renderFunction _ = flip GL.drawToCanvas

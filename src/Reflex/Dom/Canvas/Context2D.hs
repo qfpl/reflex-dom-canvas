@@ -11,7 +11,7 @@
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RankNTypes                #-}
 {-# LANGUAGE TemplateHaskell           #-}
-module Reflex.Dom.Canvas2DF where
+module Reflex.Dom.Canvas.Context2D where
 
 import           Control.Lens                   (makeClassyPrisms, ( # ), (^?),
                                                  _2, _3)

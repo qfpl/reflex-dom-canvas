@@ -16,10 +16,11 @@ extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
 library
-  exposed-modules:     Reflex.Dom.Canvas2DF
-                     , Reflex.Dom.CanvasDyn
+  exposed-modules:     Reflex.Dom.CanvasDyn
                      , Reflex.Dom.CanvasBuilder.Types
                      , Reflex.Dom.Canvas.WebGL
+                     , Reflex.Dom.Canvas.Context2D
+                     , Utils.ArbitraryDataFeed
                      , CanvasTest3D
                      , CanvasTest2D
 

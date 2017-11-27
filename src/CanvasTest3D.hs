@@ -185,8 +185,7 @@ eDraw aTime = do
   (eInitFailed, eRenderMeh) <-
     R.fanEither <$> CDyn.drawGL dInitProg dGLCX eInit
 
-  dInstructions <-
-    R.holdDyn Gl.noopF $ glDraw arrBuffer <$> eRenderMeh
+  dInstructions <- R.holdDyn Gl.noopF ( glDraw arrBuffer <$> eRenderMeh )
 
   eDrawn <- CDyn.drawGL dInstructions dGLCX eRender
 
