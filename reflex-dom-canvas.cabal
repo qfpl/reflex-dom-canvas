@@ -21,9 +21,10 @@ library
                      , Reflex.Dom.CanvasBuilder.Types
                      , Reflex.Dom.Canvas.WebGL
                      , CanvasTest3D
+                     , CanvasTest2D
 
   if impl(ghcjs -any)
-    ghc-options:        -Wall -O2 -dedupe 
+    ghc-options:        -Wall -O2 -dedupe
     cpp-options:        -DGHCJS_BROWSER
   else
     ghc-options:        -Wall
@@ -36,6 +37,7 @@ library
                      , reflex-dom-core >= 0.4 && < 0.5
                      , lens
                      , jsaddle
+                     , ghcjs-base
                      , jsaddle-dom == 0.9.*
                      , time
                      , random

@@ -6,6 +6,8 @@
 {-# LANGUAGE TypeFamilies          #-}
 module Reflex.Dom.CanvasBuilder.Types where
 
+import Data.IORef (IORef)
+
 import           Control.Lens                   (makeLenses)
 
 import           Data.Proxy                     (Proxy (..))
@@ -56,16 +58,11 @@ data CanvasConfig (c :: ContextType) t = CanvasConfig
 makeLenses ''CanvasConfig
 
 data CanvasInfo (c :: ContextType) t = CanvasInfo
-  { _canvasInfo_keyEvent :: RD.Key -> R.Event t ()
-  , _canvasInfo_El       :: RD.El t
+  { _canvasInfo_El       :: RD.El t
+  , _canvasInfo_context  :: RenderContext c
+  , _canvasInfo_keyEvent :: RD.Key -> R.Event t ()
   }
 makeLenses ''CanvasInfo
-
-data CanvasPaint (c :: ContextType) t m a = CanvasPaint
-  { _canvasPaint_paint    :: RD.PerformEvent t m => RenderFree c a -> RD.Performable m a
-  , _canvasPaint_keyEvent :: RD.Key -> R.Event t ()
-  }
-makeLenses ''CanvasPaint
 
 class HasRenderFn a where
   renderFunction :: Proxy a -> RenderContext a -> RenderFree a b -> JSM b

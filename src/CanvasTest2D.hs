@@ -10,9 +10,6 @@
 {-# LANGUAGE TypeFamilies          #-}
 module CanvasTest2D (mainish) where
 
--- Welp
-import CanvasTest3D
-
 import           Control.Lens                   (Lens', both, cons, makeLenses,
                                                  makePrisms, over, to, uncons,
                                                  unsnoc, (%~), (&), (+~), (.~),
@@ -186,7 +183,8 @@ eDraw aTime stdGen = do
     (Map.insert "id" canvasId <$> canvasAttrs) RD.blank
 
   -- Create our canvas painter, will be restricted to 'context2d' because of the types! :D
-  d2D <- CDyn.dPaint2d $ Canvas.CanvasConfig canvasEl []
+  d2D <- fmap (^. Canvas.canvasInfo_context)
+    <$> CDyn.dPaintContext2d ( Canvas.CanvasConfig canvasEl [] )
 
   eTick <- RD.tickLossy 0.016 aTime
 
@@ -201,10 +199,6 @@ eDraw aTime stdGen = do
     $ R.current dFloatFeed' <@ eTicken
 
   let
-    eLines = ( ^. dataSet_lines )
-      <$> R.current dDataLines
-      <@ eTicken
-
     toDoublePair :: Lens' Line Point -> Line -> (Double,Double)
     toDoublePair l = (^. l . _Point . to (over both ( fromRational . toRational )))
 
@@ -221,11 +215,10 @@ eDraw aTime stdGen = do
       CanvasF.strokeStyleF "#000000"
       CanvasF.strokeF
 
-    eLineIns = (\cx xs -> cx & Canvas.canvasPaint_actions .~ toCM xs)
-      <$> R.current d2D
-      <@> eLines
+    dLines = ( ^. dataSet_lines . to toCM )
+      <$> dDataLines
 
-  _ <- CDyn.paintToCanvas eLineIns
+  _ <- CDyn.drawContext2d dLines d2D eTicken
 
   RD.el "div" $
     RD.dynText ( ( Text.pack . show ) <$> dDataLines )

@@ -1,46 +1,48 @@
-{-# LANGUAGE CPP                       #-}
-{-# LANGUAGE DataKinds                 #-}
-{-# LANGUAGE FlexibleContexts          #-}
-{-# LANGUAGE MultiParamTypeClasses     #-}
-{-# LANGUAGE OverloadedStrings         #-}
-{-# LANGUAGE RecordWildCards           #-}
-{-# LANGUAGE TupleSections             #-}
+{-# LANGUAGE CPP                   #-}
+{-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE FlexibleContexts      #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE RecordWildCards       #-}
 --
 module CanvasTest3D where
 
-import           Control.Lens                    ((&), (.~))
-import           GHC.Int                         (Int32)
+import           Control.Lens                       (itraverse_, (^.))
 
-import           Reflex.Dom.Canvas.WebGL         (WebGLF)
-import qualified Reflex.Dom.Canvas.WebGL         as Gl
+import           Data.Coerce                        (coerce)
 
-import           JSDOM.Types                     (JSString, MonadJSM, castTo,
-                                                  liftJSM, toJSValListOf)
+import           GHC.Int                            (Int32)
+import qualified Reflex.Dom.Canvas.WebGL            as Gl
 
-import qualified JSDOM.Types                     as Dom
+import           JSDOM.Types                        (JSString, MonadJSM,
+                                                     liftJSM, toJSValListOf)
 
-import qualified JSDOM.WebGLRenderingContextBase as Gl
+import qualified JSDOM.Types                        as Dom
 
-import qualified Reflex.Dom.CanvasBuilder.Types  as Canvas
-import qualified Reflex.Dom.CanvasDyn            as CDyn
+import qualified Language.Javascript.JSaddle        as JSV
 
-import           Reflex                          ((<@), (<@>))
-import qualified Reflex                          as R
+import           Language.Javascript.JSaddle.Object ((<##))
+import qualified Language.Javascript.JSaddle.Object as JSO
 
-import           Reflex.Dom                      (MonadWidget)
-import qualified Reflex.Dom                      as RD
+import qualified JSDOM.WebGLRenderingContextBase    as Gl
 
-import           Data.Text                       (Text)
-import qualified Data.Text                       as Text
-import           Data.Time                       (UTCTime, getCurrentTime)
+import qualified Reflex.Dom.CanvasBuilder.Types     as Canvas
+import qualified Reflex.Dom.CanvasDyn               as CDyn
 
-import           Control.Monad.Except            (ExceptT (..), lift,
-                                                  runExceptT)
-import           Control.Monad.Free              (MonadFree)
-import           Data.Either                     (Either)
-import qualified Data.Map                        as Map
+import           Reflex                             ((<@))
+import qualified Reflex                             as R
 
-import           Data.String                     (fromString)
+import           Reflex.Dom                         (MonadWidget)
+import qualified Reflex.Dom                         as RD
+
+import           Data.Text                          (Text)
+import qualified Data.Text                          as Text
+import           Data.Time                          (UTCTime, getCurrentTime)
+
+import           Control.Monad.Except               (ExceptT (..), lift,
+                                                     runExceptT)
+import           Data.Either                        (Either)
+import qualified Data.Map                           as Map
 
 #ifndef ghcjs_HOST_OS
 import qualified Run
@@ -67,10 +69,27 @@ fragShader = Text.unlines
 positions
   :: [Double]
 positions =
-  [ 0.1, 0.1
-  , 0.1, 0.6
-  , 0.8, 0.1
-  ]
+  [ 0.0, 0.0
+  , 0.0, 0.5
+  , 0.7, 0.0
+  ];
+
+makeArrayBuffer
+  :: MonadJSM m
+  => [Double]
+  -> m Dom.ArrayBuffer
+makeArrayBuffer ds = Dom.liftJSM $ do
+  let a        = "ArrayBuffer"  :: Text
+      f32a     = "Float32Array" :: Text
+      buffProp = "buffer"       :: Text
+  -- Create the read-only backing buffer, size of F32 in JS is 4 Bytes
+  buff <- JSO.new ( JSO.jsg a ) (JSV.ValNumber . fromIntegral . (*4) . length $ ds)
+  -- Create the view into our buffer, needed as ArrayBuffers are readonly
+  f32Arr <- JSO.new (JSO.jsg f32a ) (buff)
+  -- Loop over the given list of positions and set their value on the view.
+  itraverse_ (\ix v -> (f32Arr <## ix) v ) ds
+  -- Hand back the buffer
+  Dom.unsafeCastTo Dom.ArrayBuffer =<< f32Arr JSO.! buffProp
 
 data RenderMeh = R
   { _rGLProgram  :: Dom.WebGLProgram
@@ -81,106 +100,97 @@ data RenderMeh = R
 glProgramInit
   :: Text
   -> Text
-  -> Dom.ArrayBuffer
   -> Gl.WebGLM (Either JSString RenderMeh)
-glProgramInit vertSrc fragSrc arrBuffer = runExceptT $ do
+glProgramInit vertSrc fragSrc = runExceptT $ do
   -- Begin initialisation
   vS <- ExceptT $ Gl.buildShader vertSrc Gl.VERTEX_SHADER
   fS <- ExceptT $ Gl.buildShader fragSrc Gl.FRAGMENT_SHADER
   glProg <- ExceptT $ Gl.buildProgram vS fS
 
+  -- Buffer Setup and Loading
   posAttrLoc <- lift $ Gl.getAttribLocationF glProg ( "a_position" :: Text )
+  lift $ Gl.enableVertexAttribArrayF (fromIntegral posAttrLoc)
+
   posBuffer <- lift Gl.createBufferF
 
-  lift $ Gl.bindBufferF Gl.ARRAY_BUFFER posBuffer
-
-  lift $ Gl.bufferDataF Gl.ARRAY_BUFFER arrBuffer Gl.STATIC_DRAW
-  -- End initialisation
   pure $ R glProg posAttrLoc posBuffer
 
-
-glProgramDraw
-  :: Int32
-  -> Int32
+glDraw
+  :: Dom.ArrayBuffer
   -> RenderMeh
   -> Gl.WebGLM ()
-glProgramDraw cW cH (R {..}) = do
-  -- Begin Rendering code
-  Gl.viewportF 0 0 cW cH
+glDraw arrBuff ( R {..} ) = do
+  -- Populate our buffer with some data
+  Gl.bindBufferF Gl.ARRAY_BUFFER _rPosBuffer
+  Gl.bufferDataF Gl.ARRAY_BUFFER arrBuff Gl.STATIC_DRAW
 
-  -- Clear canvas
+ -- Clear canvas
   Gl.clearColourF 0 0 0 0
   Gl.clearF Gl.COLOR_BUFFER_BIT
 
   -- Tell WebGL to use our pair of shaders
   Gl.useProgramF _rGLProgram
 
-  -- Buffer Setup and Loading
-  Gl.enableVertexAttribArrayF ( fromIntegral _rPosAttrLoc )
-
-  Gl.bindBufferF Gl.ARRAY_BUFFER _rPosBuffer
-
   let
     size      = 2               -- 2 components per iteration
     dataType  = Gl.FLOAT        -- the data is 32bit floats
     normalise = False           -- don't normalize the data
-    stride    = size * 4 -- move forward size * sizeof(type) each iteration to get the next position
+    stride    = 0        -- 0 for tightly packed array or move forward size * sizeof(type) each iteration to get the next position
     offset    = 0        -- start at the beginning of the buffer
 
   -- Tell the attribute how to get data out of positionBuffer (ARRAY_BUFFER)
-  Gl.vertexAttribPointerF ( fromIntegral _rPosAttrLoc ) size dataType normalise stride offset
+  Gl.vertexAttribPointerF
+    (fromIntegral _rPosAttrLoc)
+    size
+    dataType
+    normalise
+    stride
+    offset
 
   let
     primitiveType = Gl.TRIANGLES
-    offset' = 0
     count = 3
+    offset' = 0
 
   Gl.drawArraysF primitiveType offset' count
 
 eDraw :: MonadWidget t m => UTCTime -> m ()
 eDraw aTime = do
   let
-    canvasH = 480
-    canvasW = 640
+    canvasH = 400
+    canvasW = 400
 
     canvasId = "canvas-three-dee"
     canvasAttrs = pure $ Map.fromList
-      [ ("height", "480")
-      , ("width", "640")
+      [ ("height", "400")
+      , ("width", "400")
       ]
 
   eInit <- RD.button "Init"
   eRender <- RD.button "Render"
 
-  -- Create some JS Data
-  -- Need a better way of mangling this... add to util Free and Coproduct to victory?
-  arrBuffer <- liftJSM (Dom.uncheckedCastTo Dom.ArrayBuffer <$> toJSValListOf positions)
+  arrBuffer <- makeArrayBuffer positions
 
   -- Create the canvas element
   canvasEl <- fst <$> RD.elDynAttr' "canvas"
     (Map.insert "id" canvasId <$> canvasAttrs) RD.blank
 
-  -- Provide polymorphic painter here...
-  dGLCX <- CDyn.dGLCx ( Canvas.CanvasConfig canvasEl [] )
+  dGLCX <- fmap (^. Canvas.canvasInfo_context)
+    <$> CDyn.dPaintWebgl ( Canvas.CanvasConfig canvasEl [] )
 
   let
-    glInitProg = CDyn.drawGL
-      $ glProgramInit vertShader fragShader arrBuffer
+    dInitProg =
+      pure $ glProgramInit vertShader fragShader
 
   (eInitFailed, eRenderMeh) <-
-    R.fanEither <$> glInitProg (R.current dGLCX <@ eInit)
+    R.fanEither <$> CDyn.drawGL dInitProg dGLCX eInit
 
-  dDrawing <- R.holdDyn Gl.noopF $
-    -- Only render noops until we have successfully initialised
-    glProgramDraw canvasW canvasH <$> eRenderMeh
+  dInstructions <-
+    R.holdDyn Gl.noopF $ glDraw arrBuffer <$> eRenderMeh
+
+  eDrawn <- CDyn.drawGL dInstructions dGLCX eRender
 
   dStatus <- R.holdDyn "A little nothing..." eInitFailed
-
-  let
-    dAction =
-      (\instructions -> CDyn.drawGL instructions (R.current dGLCX <@ eRender ) ) <$> dDrawing
-
-  eDrew <- RD.dyn dAction
 
   RD.divClass "errorz" $
     RD.display dStatus

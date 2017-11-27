@@ -6,7 +6,7 @@
 {-# LANGUAGE OverloadedStrings     #-}
 module Reflex.Dom.Canvas.WebGL where
 
-import           JSDOM.Types                     (BufferDataSource, FromJSVal,
+import           JSDOM.Types                     (ArrayBuffer, FromJSVal,
                                                   GLboolean, GLclampf, GLenum,
                                                   GLfloat, GLint, GLintptr,
                                                   GLsizei, GLuint,
@@ -15,12 +15,15 @@ import           JSDOM.Types                     (BufferDataSource, FromJSVal,
                                                   ToJSString (..), WebGLBuffer,
                                                   WebGLProgram, WebGLShader,
                                                   WebGLUniformLocation,
-                                                  fromJSVal, liftJSM,
-                                                  toBufferDataSource)
+                                                  fromJSVal, liftJSM)
 
 import           Data.Either                     (Either (..))
 import           Data.Maybe                      (fromMaybe)
 import           Data.Text                       (Text)
+
+import Control.Monad.IO.Class (liftIO)
+import           Data.IORef (IORef)
+import qualified Data.IORef as IORef
 
 import qualified JSDOM.WebGLRenderingContextBase as WebGL
 
@@ -58,7 +61,7 @@ data WebGLF a
   -- Buffers
   | CreateBuffer (WebGLBuffer -> a)
   | BindBuffer GLenum WebGLBuffer a
-  | BufferData GLenum BufferDataSource GLenum a
+  | BufferData GLenum ArrayBuffer GLenum a
 
   -- Viewport
   | Viewport GLint GLint GLsizei GLsizei a
@@ -120,14 +123,14 @@ bindBufferF gle = liftF_ . BindBuffer gle
 
 bufferDataF
   :: ( MonadFree WebGLF m
-     , IsBufferDataSource buff
+     -- , IsBufferDataSource buff
      )
   => GLenum
-  -> buff
+  -> ArrayBuffer
   -> GLenum
   -> m ()
 bufferDataF gle1 buff =
-  liftF_ . BufferData gle1 ( toBufferDataSource buff )
+  liftF_ . BufferData gle1 buff
 
 -- Uniforms
 
@@ -267,7 +270,7 @@ drawToCanvas
   -> cx
   -> m a
 drawToCanvas instructions cxt =
-  foldF ( applyInstruction cxt ) instructions
+  foldF (applyInstruction cxt) instructions
 
 applyInstruction
   :: ( WebGL.IsWebGLRenderingContextBase cx
