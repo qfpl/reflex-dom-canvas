@@ -6,11 +6,11 @@
 {-# LANGUAGE OverloadedStrings     #-}
 module Reflex.Dom.Canvas.WebGL where
 
-import           JSDOM.Types                     (ArrayBuffer, FromJSVal,
+import           JSDOM.Types                     (ArrayBuffer,
                                                   GLboolean, GLclampf, GLenum,
                                                   GLfloat, GLint, GLintptr,
                                                   GLsizei, GLuint,
-                                                  IsBufferDataSource, JSString,
+                                                  JSString,
                                                   JSVal, MonadJSM,
                                                   ToJSString (..), WebGLBuffer,
                                                   WebGLProgram, WebGLShader,
@@ -20,10 +20,6 @@ import           JSDOM.Types                     (ArrayBuffer, FromJSVal,
 import           Data.Either                     (Either (..))
 import           Data.Maybe                      (fromMaybe)
 import           Data.Text                       (Text)
-
-import Control.Monad.IO.Class (liftIO)
-import           Data.IORef (IORef)
-import qualified Data.IORef as IORef
 
 import qualified JSDOM.WebGLRenderingContextBase as WebGL
 

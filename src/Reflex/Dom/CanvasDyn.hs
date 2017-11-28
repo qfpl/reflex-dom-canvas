@@ -5,7 +5,6 @@
 {-# LANGUAGE TypeFamilies          #-}
 --
 {-# LANGUAGE MultiParamTypeClasses #-}
-
 module Reflex.Dom.CanvasDyn
   ( dContext2d
   , dContextWebgl
@@ -13,33 +12,32 @@ module Reflex.Dom.CanvasDyn
   , drawWithCx
   ) where
 
-import           Control.Lens                    ((^.))
-import           Data.Coerce                     (coerce)
-import           Data.Proxy                      (Proxy (..))
-import           GHC.TypeLits                    (KnownSymbol, symbolVal)
+import           Control.Lens                   ((^.))
+import           Data.Coerce                    (coerce)
+import           Data.Proxy                     (Proxy (..))
+import           GHC.TypeLits                   (KnownSymbol, symbolVal)
 
 import qualified JSDOM
-import           JSDOM.HTMLCanvasElement         (getContextUnchecked)
-import           JSDOM.Types                     (IsRenderingContext, JSM,
-                                                  MonadJSM,
-                                                  RenderingContext (..),
-                                                  fromJSValUnchecked, liftJSM,
-                                                  toJSVal)
+import           JSDOM.HTMLCanvasElement        (getContextUnchecked)
+import           JSDOM.Types                    (IsRenderingContext, JSM,
+                                                 RenderingContext (..),
+                                                 fromJSValUnchecked, liftJSM,
+                                                 toJSVal)
 
-import           Reflex                          (Dynamic, Event, (<@))
-import qualified Reflex                          as R
+import           Reflex                         (Dynamic, Event, (<@))
+import qualified Reflex                         as R
 
-import           Reflex.Dom                      (MonadWidget)
-import qualified Reflex.Dom                      as RD
+import           Reflex.Dom                     (MonadWidget)
+import qualified Reflex.Dom                     as RD
 
 import           Reflex.Dom.CanvasBuilder.Types
 
 dCanvasCx
-  :: forall c cx t m. ( MonadWidget t m
-                      , KnownSymbol (RenderContextEnum c)
-                      , IsRenderingContext (RenderContext c)
-                      , HasRenderFn c (RenderContext c)
-                      )
+  :: forall c t m. ( MonadWidget t m
+                   , KnownSymbol (RenderContextEnum c)
+                   , IsRenderingContext (RenderContext c)
+                   , HasRenderFn c (RenderContext c)
+                   )
   => CanvasConfig c t
   -> m ( Dynamic t ( CanvasInfo c t ) )
 dCanvasCx cfg = do
@@ -83,13 +81,13 @@ drawWithCx
   -> m ( Event t a )
 drawWithCx dContext dAction eApply =
   let
-    nextFrame f cx = liftJSM $
+    nextFrame cx f = liftJSM $
       JSDOM.nextAnimationFrame (f cx)
   in
     RD.performEvent
     ( nextFrame
-      <$> R.current dAction
-      <*> R.current dContext
+      <$> R.current dContext
+      <*> R.current dAction
       <@ eApply
     )
 

@@ -9,13 +9,9 @@ module CanvasTest3D where
 
 import           Control.Lens                       (itraverse_, (^.))
 
-import           Data.Coerce                        (coerce)
-
-import           GHC.Int                            (Int32)
 import qualified Reflex.Dom.Canvas.WebGL            as Gl
 
-import           JSDOM.Types                        (JSString, MonadJSM,
-                                                     liftJSM, toJSValListOf)
+import           JSDOM.Types                        (JSString, MonadJSM)
 
 import qualified JSDOM.Types                        as Dom
 
@@ -29,7 +25,6 @@ import qualified JSDOM.WebGLRenderingContextBase    as Gl
 import qualified Reflex.Dom.CanvasBuilder.Types     as Canvas
 import qualified Reflex.Dom.CanvasDyn               as CDyn
 
-import           Reflex                             ((<@))
 import qualified Reflex                             as R
 
 import           Reflex.Dom                         (MonadWidget)
@@ -45,7 +40,8 @@ import           Data.Either                        (Either)
 import qualified Data.Map                           as Map
 
 #ifndef ghcjs_HOST_OS
-import qualified Run
+import           Language.Javascript.JSaddle.Warp   (run)
+import           Reflex.Dom.Core                    (mainWidget)
 #endif
 
 vertShader
@@ -79,13 +75,16 @@ makeArrayBuffer
   => [Double]
   -> m Dom.ArrayBuffer
 makeArrayBuffer ds = Dom.liftJSM $ do
-  let a        = "ArrayBuffer"  :: Text
-      f32a     = "Float32Array" :: Text
-      buffProp = "buffer"       :: Text
+  let
+    a, f32a, buffProp :: Text
+    a        = "ArrayBuffer"
+    f32a     = "Float32Array"
+    buffProp = "buffer"
+
   -- Create the read-only backing buffer, size of F32 in JS is 4 Bytes
   buff <- JSO.new ( JSO.jsg a ) (JSV.ValNumber . fromIntegral . (*4) . length $ ds)
   -- Create the view into our buffer, needed as ArrayBuffers are readonly
-  f32Arr <- JSO.new (JSO.jsg f32a ) (buff)
+  f32Arr <- JSO.new (JSO.jsg f32a ) buff
   -- Loop over the given list of positions and set their value on the view.
   itraverse_ (\ix v -> (f32Arr <## ix) v ) ds
   -- Hand back the buffer
@@ -103,8 +102,8 @@ glProgramInit
   -> Gl.WebGLM (Either JSString RenderMeh)
 glProgramInit vertSrc fragSrc = runExceptT $ do
   -- Begin initialisation
-  vS <- ExceptT $ Gl.buildShader vertSrc Gl.VERTEX_SHADER
-  fS <- ExceptT $ Gl.buildShader fragSrc Gl.FRAGMENT_SHADER
+  vS     <- ExceptT $ Gl.buildShader vertSrc Gl.VERTEX_SHADER
+  fS     <- ExceptT $ Gl.buildShader fragSrc Gl.FRAGMENT_SHADER
   glProg <- ExceptT $ Gl.buildProgram vS fS
 
   -- Buffer Setup and Loading
@@ -119,7 +118,7 @@ glDraw
   :: Dom.ArrayBuffer
   -> RenderMeh
   -> Gl.WebGLM ()
-glDraw arrBuff ( R {..} ) = do
+glDraw arrBuff R {..} = do
   -- Populate our buffer with some data
   Gl.bindBufferF Gl.ARRAY_BUFFER _rPosBuffer
   Gl.bufferDataF Gl.ARRAY_BUFFER arrBuff Gl.STATIC_DRAW
@@ -155,11 +154,8 @@ glDraw arrBuff ( R {..} ) = do
   Gl.drawArraysF primitiveType offset' count
 
 eDraw :: MonadWidget t m => UTCTime -> m ()
-eDraw aTime = do
+eDraw _aTime = do
   let
-    canvasH = 400
-    canvasW = 400
-
     canvasId = "canvas-three-dee"
     canvasAttrs = pure $ Map.fromList
       [ ("height", "400")
@@ -187,7 +183,7 @@ eDraw aTime = do
 
   dInstructions <- R.holdDyn Gl.noopF ( glDraw arrBuffer <$> eRenderMeh )
 
-  eDrawn <- CDyn.drawCanvasFree dInstructions dGLCX eRender
+  _ <- CDyn.drawCanvasFree dInstructions dGLCX eRender
 
   dStatus <- R.holdDyn "A little nothing..." eInitFailed
 
@@ -209,5 +205,5 @@ mainish
   :: IO ()
 mainish = do
   n <- getCurrentTime
-  Run.run ( eDraw n )
+  run 8080 $ mainWidget ( eDraw n )
 #endif

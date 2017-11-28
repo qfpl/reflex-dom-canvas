@@ -8,11 +8,8 @@
 {-# LANGUAGE FunctionalDependencies #-}
 module Reflex.Dom.CanvasBuilder.Types where
 
-import           Data.IORef                     (IORef)
-
 import           Control.Lens                   (makeLenses)
 
-import           Data.Proxy                     (Proxy (..))
 import           GHC.TypeLits                   (Symbol)
 
 import qualified Reflex                         as R

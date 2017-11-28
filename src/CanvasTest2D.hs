@@ -2,54 +2,43 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
-{-# LANGUAGE RecursiveDo           #-}
-{-# LANGUAGE TemplateHaskell       #-}
 
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE RankNTypes            #-}
 {-# LANGUAGE TypeFamilies          #-}
 module CanvasTest2D (mainish) where
 
-import           Control.Lens                   (Lens', both, cons, makeLenses,
-                                                 makePrisms, over, to, uncons,
-                                                 unsnoc, (%~), (&), (+~), (.~),
-                                                 (^.), _1, _2)
+import           Control.Lens                     (to, (^.))
 
-import           Control.Monad.Fix              (MonadFix)
+import           Reflex                           ((<@))
+import           Reflex.Dom                       (MonadWidget)
 
-import           Reflex                         (Dynamic, Event, MonadHold,
-                                                 Reflex, (<@), (<@>))
-import           Reflex.Dom                     (MonadWidget)
+import qualified Reflex                           as R
+import qualified Reflex.Dom                       as RD
 
-import qualified Reflex                         as R
-import qualified Reflex.Dom                     as RD
+import qualified Data.Text                        as Text
 
-import           Data.Text                      (Text)
-import qualified Data.Text                      as Text
+import           Data.Foldable                    (traverse_)
 
-import           Data.Foldable                  (traverse_)
+import qualified Reflex.Dom.Canvas.Context2D      as CanvasF
 
-import           Reflex.Dom.Canvas.Context2D    (CanvasM)
-import qualified Reflex.Dom.Canvas.Context2D    as CanvasF
+import qualified Reflex.Dom.CanvasBuilder.Types   as Canvas
+import qualified Reflex.Dom.CanvasDyn             as CDyn
 
-import qualified Reflex.Dom.CanvasBuilder.Types as Canvas
-import qualified Reflex.Dom.CanvasDyn           as CDyn
+import           Data.Time                        (UTCTime, getCurrentTime)
 
-import           Data.Time                      (UTCTime, getCurrentTime)
+import           System.Random                    (StdGen)
+import qualified System.Random                    as Rnd
 
-import           Data.Sequence                  (Seq)
-import qualified Data.Sequence                  as S
-
-import           System.Random                  (StdGen)
-import qualified System.Random                  as Rnd
-
-import qualified Data.Map                       as Map
+import qualified Data.Map                         as Map
 
 #ifndef ghcjs_HOST_OS
-import qualified Run
+import           Language.Javascript.JSaddle.Warp (run)
+import           Reflex.Dom.Core                  (mainWidget)
+-- import qualified Run
 #endif
 
-import qualified Utils.ArbitraryDataFeed        as AF
+import qualified Utils.ArbitraryDataFeed          as AF
 
 eDraw
   :: MonadWidget t m
@@ -100,8 +89,8 @@ eDraw aTime stdGen = do
       CanvasF.strokeStyleF "#000000"
       CanvasF.strokeF
 
-    dLines =
-      ( ^. AF.dataSet_lines . to toCM ) <$> dDataLines
+    dLines = ( ^. AF.dataSet_lines . to toCM )
+      <$> dDataLines
 
   _ <- CDyn.drawCanvasFree dLines d2D eTicken
 
@@ -123,5 +112,5 @@ mainish
 mainish = do
   n <- getCurrentTime
   g <- Rnd.getStdGen
-  Run.run ( eDraw n g )
+  run 8080 $ mainWidget ( eDraw n g )
 #endif

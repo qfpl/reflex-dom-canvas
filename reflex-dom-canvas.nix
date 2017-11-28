@@ -1,7 +1,6 @@
-{ mkDerivation, base, bifunctors, containers, directory, filepath
-, free, jsaddle, jsaddle-dom, jsaddle-warp, lens, mtl, reflex
-, reflex-dom, reflex-dom-core, stdenv, text, wai, exception-transformers, primitive, ref-tf, monad-control
-, wai-middleware-static, warp, websockets, random
+{ mkDerivation, base, bifunctors, containers, free, jsaddle
+, jsaddle-dom, jsaddle-warp, lens, mtl, random, reflex, reflex-dom
+, reflex-dom-core, stdenv, text, time
 }:
 mkDerivation {
   pname = "reflex-dom-canvas";
@@ -10,11 +9,9 @@ mkDerivation {
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
-    base bifunctors containers directory filepath free
-    jsaddle jsaddle-warp jsaddle-dom lens mtl reflex reflex-dom reflex-dom-core
-    text wai wai-middleware-static warp websockets random
-    exception-transformers primitive ref-tf monad-control
+    base bifunctors containers free jsaddle jsaddle-dom jsaddle-warp
+    lens mtl random reflex reflex-dom reflex-dom-core text time
   ];
-  executableHaskellDepends = [ base reflex-dom-core ];
+  executableHaskellDepends = [ base ];
   license = stdenv.lib.licenses.bsd3;
 }

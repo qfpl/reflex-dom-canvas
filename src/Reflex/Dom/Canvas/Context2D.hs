@@ -16,7 +16,7 @@ module Reflex.Dom.Canvas.Context2D where
 import           Control.Lens                   (makeClassyPrisms, ( # ), (^?),
                                                  _2, _3)
 
-import           Control.Monad.Free.Church      (F, foldF, iter, liftF)
+import           Control.Monad.Free.Church      (F, foldF, liftF)
 
 import           JSDOM.CanvasPath               as C
 import           JSDOM.CanvasRenderingContext2D as C
