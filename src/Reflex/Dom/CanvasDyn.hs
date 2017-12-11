@@ -53,7 +53,7 @@ dCanvasCx cfg = do
 
 drawCanvasFree
   :: ( MonadWidget t m
-     , HasRenderFn c cx
+     , HasRenderFn c ( RenderContext c )
      )
   => Dynamic t ( RenderFree c a )
   -> Dynamic t ( RenderContext c )
