@@ -51,18 +51,17 @@ eDraw aTime stdGen = do
     canvasW = 640
     dataN   = 20
 
-    canvasId = "fruit-balls"
-    canvasAttrs = pure $ Map.fromList
+    canvasAttrs = Map.fromList
       [ ("height", "480")
-      , ("width", "640")
+      , ("width" , "640")
+      , ("id"    , "fruity")
       ]
 
   eStart <- RD.button "Start"
   eStop  <- RD.button "Stop"
 
   -- Create the canvas element
-  canvasEl <- fst <$> RD.elDynAttr' "canvas"
-    (Map.insert "id" canvasId <$> canvasAttrs) RD.blank
+  canvasEl <- fst <$> RD.elAttr' "canvas" canvasAttrs RD.blank
 
   -- Create our canvas painter, will be restricted to 'context2d' because of the types! :D
   d2D <- fmap (^. Canvas.canvasInfo_context)
