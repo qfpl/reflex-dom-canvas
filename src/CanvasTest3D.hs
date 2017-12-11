@@ -81,10 +81,11 @@ makeArrayBuffer ds = Dom.liftJSM $ do
     f32a     = "Float32Array"
     buffProp = "buffer"
 
-  -- Create the read-only backing buffer, size of F32 in JS is 4 Bytes
-  buff <- JSO.new ( JSO.jsg a ) (JSV.ValNumber . fromIntegral . (*4) . length $ ds)
-  -- Create the view into our buffer, needed as ArrayBuffers are readonly
-  f32Arr <- JSO.new (JSO.jsg f32a ) buff
+  -- Create the read-only backing buffer. NB: The size of a float32 in JS is 4 Bytes
+  buff <- JSO.new (JSO.jsg a) (JSV.ValNumber . fromIntegral . (*4) . length $ ds)
+  -- Create the view into our buffer, needed as ArrayBuffers are readonly, so we must
+  -- use the Float32Array as the intermediary.
+  f32Arr <- JSO.new (JSO.jsg f32a) buff
   -- Loop over the given list of positions and set their value on the view.
   itraverse_ (\ix v -> (f32Arr <## ix) v ) ds
   -- Hand back the buffer
@@ -127,7 +128,7 @@ glDraw arrBuff R {..} = do
   Gl.clearColourF 0 0 0 0
   Gl.clearF Gl.COLOR_BUFFER_BIT
 
-  -- Tell WebGL to use our pair of shaders
+  -- Tell WebGL to use our prepared GLProgram
   Gl.useProgramF _rGLProgram
 
   let
@@ -192,18 +193,12 @@ eDraw _aTime = do
 
   pure ()
 
+mainish
+  :: IO ()
+mainish = do
+  n <- getCurrentTime
 #ifdef ghcjs_HOST_OS
-mainish
-  :: IO ()
-mainish = do
-  n <- getCurrentTime
   RD.mainWidget ( eDraw n )
-#endif
-
-#ifndef ghcjs_HOST_OS
-mainish
-  :: IO ()
-mainish = do
-  n <- getCurrentTime
+#else
   run 8080 $ mainWidget ( eDraw n )
 #endif
