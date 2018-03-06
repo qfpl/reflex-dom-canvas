@@ -1,3 +1,5 @@
+<img src="http://i.imgur.com/0h9dFhl.png" width="300px"/>
+
 # Reflex HTML5 Canvas
 
 Helper functions for creating and managing a [Canvas](https://developer.mozilla.org/en-US/docs/Web/HTML/Element/canvas) element and a [RenderingContext](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext). Supports both 2d and WebGL.

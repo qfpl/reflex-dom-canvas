@@ -18,14 +18,14 @@ let
       mkdir -p $out
 
       mkdir -p $out/js
-      cp $out/bin/reflex-dom-canvas-exe.jsexe/all.js $out/js/reflex-dom-canvas-exe.js
+      cp $out/bin/reflex-dom-canvas.jsexe/all.js $out/js/reflex-dom-canvas.js
 
       mkdir -p $out/css
       ln -s ./css/* $out/css
 
-      ln -s $out/bin/reflex-dom-canvas-exe.jsexe/index.html $out/index.html
+      ln -s $out/bin/reflex-dom-canvas.jsexe/index.html $out/index.html
 
-      cd $out/bin/reflex-dom-canvas-exe.jsexe
+      cd $out/bin/reflex-dom-canvas.jsexe
       closure-compiler all.js --compilation_level=ADVANCED_OPTIMIZATIONS --isolation_mode=IIFE --assume_function_wrapper --jscomp_off="*" --externs=all.js.externs > $out/js/reflex-dom-canvas.min.js
       rm -Rf $out/bin/reflex-dom-canvas.jsexe
       rm -Rf $out/bin

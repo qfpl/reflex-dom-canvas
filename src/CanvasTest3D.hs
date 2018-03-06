@@ -7,7 +7,7 @@
 --
 module CanvasTest3D where
 
-import           Control.Lens                       (itraverse_, (^.))
+import           Control.Lens                       ((^.))
 
 import qualified Reflex.Dom.Canvas.WebGL            as Gl
 
@@ -15,9 +15,6 @@ import           JSDOM.Types                        (JSString, MonadJSM)
 
 import qualified JSDOM.Types                        as Dom
 
-import qualified Language.Javascript.JSaddle        as JSV
-
-import           Language.Javascript.JSaddle.Object ((<##))
 import qualified Language.Javascript.JSaddle.Object as JSO
 
 import qualified JSDOM.WebGLRenderingContextBase    as Gl
@@ -68,28 +65,16 @@ positions =
   [ 0.0, 0.0
   , 0.0, 0.5
   , 0.7, 0.0
-  ];
+  ]
 
 makeArrayBuffer
   :: MonadJSM m
   => [Double]
   -> m Dom.ArrayBuffer
-makeArrayBuffer ds = Dom.liftJSM $ do
-  let
-    a, f32a, buffProp :: Text
-    a        = "ArrayBuffer"
-    f32a     = "Float32Array"
-    buffProp = "buffer"
-
-  -- Create the read-only backing buffer. NB: The size of a float32 in JS is 4 Bytes
-  buff <- JSO.new (JSO.jsg a) (JSV.ValNumber . fromIntegral . (*4) . length $ ds)
-  -- Create the view into our buffer, needed as ArrayBuffers are readonly, so we must
-  -- use the Float32Array as the intermediary.
-  f32Arr <- JSO.new (JSO.jsg f32a) buff
-  -- Loop over the given list of positions and set their value on the view.
-  itraverse_ (\ix v -> (f32Arr <## ix) v ) ds
-  -- Hand back the buffer
-  Dom.unsafeCastTo Dom.ArrayBuffer =<< f32Arr JSO.! buffProp
+makeArrayBuffer ds = Dom.liftJSM $
+  JSO.new (JSO.jsg ("Float32Array" :: Text)) [ds]
+  >>= (JSO.! ("buffer" :: Text))
+  >>= Dom.unsafeCastTo Dom.ArrayBuffer
 
 data RenderMeh = R
   { _rGLProgram  :: Dom.WebGLProgram
