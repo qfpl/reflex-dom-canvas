@@ -5,6 +5,7 @@
 {-# LANGUAGE TypeFamilies          #-}
 --
 {-# LANGUAGE MultiParamTypeClasses #-}
+-- | Main functions for creating your Dynamic canvas element
 module Reflex.Dom.CanvasDyn
   ( dContext2d
   , dContextWebgl
@@ -51,6 +52,8 @@ dCanvasCx cfg = do
 
   return . pure $ CanvasInfo reflexEl ( coerce renderCx ) (`RD.keypress` reflexEl)
 
+-- | Execute instructions from one of the Free Monad implementations of canvas
+-- functionality.
 drawCanvasFree
   :: ( MonadWidget t m
      , HasRenderFn c ( RenderContext c )
@@ -71,6 +74,8 @@ drawCanvasFree dInstructions dContext eDraw =
       <@  eDraw
     )
 
+-- | Run functions using the raw canvas context object. This will be either a
+-- Context2D or ContextWebGL depending on which type you initialised.
 drawWithCx
   :: ( MonadWidget t m
      , HasRenderFn c ( RenderContext c )
@@ -91,12 +96,14 @@ drawWithCx dContext dAction eApply =
       <@ eApply
     )
 
+-- | Create a canvas for 2D drawing using "context2d".
 dContext2d
   :: MonadWidget t m
   => CanvasConfig 'TwoD t
   -> m ( Dynamic t ( CanvasInfo 'TwoD t ) )
 dContext2d = dCanvasCx
 
+-- | Create a canvas for use with WebGL.
 dContextWebgl
   :: MonadWidget t m
   => CanvasConfig 'Webgl t

@@ -1,20 +1,13 @@
-{-# LANGUAGE DeriveDataTypeable        #-}
 {-# LANGUAGE DeriveFoldable            #-}
 {-# LANGUAGE DeriveFunctor             #-}
 {-# LANGUAGE DeriveTraversable         #-}
 {-# LANGUAGE FlexibleContexts          #-}
 {-# LANGUAGE FlexibleInstances         #-}
-{-# LANGUAGE FunctionalDependencies    #-}
-{-# LANGUAGE LambdaCase                #-}
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE RankNTypes                #-}
-{-# LANGUAGE TemplateHaskell           #-}
+-- | A subset of 2D drawing actions for working with a canvas.
 module Reflex.Dom.Canvas.Context2D where
-
-import           Control.Lens                   (makeClassyPrisms, ( # ), (^?),
-                                                 _2, _3)
 
 import           Control.Monad.Free.Church      (F, foldF, liftF)
 
@@ -43,6 +36,7 @@ import           JSDOM.Types                    (JSString, MonadJSM)
 -- Has the wrong type...
 -- IsPointInPath Double Double (Bool -> a)
 
+-- | Subset of allowable instructions for a 2D canvas context.
 data CanvasF a
   = Transform Float Float Float Float Float Float a
   -- | SetTransform Double Double Double Double Double Double a
@@ -73,55 +67,22 @@ data CanvasF a
   | StrokeStyle JSString a
   | Stroke a
   | Clip CanvasWindingRule a
-  -- | QuadraticCurveTo Double Double Double Double a
-  -- | BezierCurveTo Doub But I might start building something a bit bigger than just little shapes or le Double Double Double Double Double a
-  -- | Arc Double Double Double Double Double Bool a
-  -- | ArcTo Double Double Double Double Double a
+
+  | QuadraticCurveTo Double Double Double Double a
+  | BezierCurveTo Double Double Double Double Double Double a
+  | Arc Double Double Double Double Double Bool a
+  | ArcTo Double Double Double Double Double a
+
   | Rect Double Double Double Double a
   | ClearRect Float Float Float Float a
   | StrokeRect Float Float Float Float a
+
   -- | DrawImage CanvasImageSource Float Float a
+
   | Done a
   deriving (Functor, Foldable, Traversable, Show, Eq)
-makeClassyPrisms ''CanvasF
 
 type CanvasM = F CanvasF
-
--- instance AsCanvasF (CanvasM a) (CanvasM a) where
---   _CanvasF = _Free
-
--- Canvas doesn't always play well with floating point coordinates, according to:
--- https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API/Tutorial/Optimizing_canvas
--- It is better to provide these values as integers, or whole numbers.
---
--- I'm not convinced this is a good idea. But it's a nice simple 'Plated' example for me.
--- truncateDrawImageCoords
---   :: CanvasF a
---   -> CanvasF a
--- truncateDrawImageCoords =
---   let
---     moosh = fromInteger . truncate
---   in
---     P.transform $ \case
---       DrawImage img x y n -> DrawImage img (moosh x) (moosh y) n
---       c                   -> c
-
--- Simply put... Provided Stroke properties match, then:
--- [ BeginPath [MoveTo,LineTo] ClosePath ( StrokeStyle StyleX ) Stroke ]
--- =
--- [ BeginPath [MoveTo,LineTo] ClosePath ] ( StrokeStyle StyleX ) Stroke
---
-batchDrawInstructions
-  :: F CanvasF a
-  -> F CanvasF a
-batchDrawInstructions =
-  error "batchDrawInstructions not implemented"
-
-findDrawBounds
-  :: CanvasF a
-  -> (Float, Float, Float, Float)
-findDrawBounds =
-  error "drawBounds not implemented"
 
 drawToCanvas
   :: MonadJSM m
@@ -148,6 +109,13 @@ applyInstruction cxt instruction =
     StrokeStyle style cont     -> cont <$ C.setStrokeStyle cxt style
     Transform a b c d e f cont -> cont <$ C.transform cxt a b c d e f
 
+    Arc x y radius startAngle endAngle anticlockwise cont -> cont <$ C.arc cxt x y radius startAngle endAngle anticlockwise
+    ArcTo cp1_X cp1_Y cp2_X cp2_Y radius cont             -> cont <$ C.arcTo cxt cp1_X cp1_Y cp2_X cp2_Y radius
+    BezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY cont  -> cont <$ C.bezierCurveTo cxt cp1_X cp1_Y cp2_X cp2_Y endX endY
+    QuadraticCurveTo cpX cpY endX endY cont               -> cont <$ C.quadraticCurveTo cxt cpX cpY endX endY
+
+    -- DrawImage img dw dh cont                              -> cont <$ C.drawImage cxt img dw dh
+
     Done a                     -> pure a
 
     --  FillText text x y cont                                -> cont <$ C.fillText text x y
@@ -170,14 +138,6 @@ applyInstruction cxt instruction =
     --  DrawImage img dw dh cont                              -> cont <$ C.drawImage cxt img dw dh
     --  FillRule rule cont                                    -> cont <$ C.setFillRule cxt rule
     --  FillStyle style cont                                  -> cont <$ C.setFillStyle cxt style
-    --  Arc x y radius startAngle endAngle anticlockwise cont
-    --    -> cont <$ C.arc x y radius startAngle endAngle anticlockwise
-    --  ArcTo cp1_X cp1_Y cp2_X cp2_Y radius cont
-    --    -> cont <$ C.arcTo cp1_X cp1_Y cp2_X cp2_Y radius
-    --  BezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY cont
-    --    -> cont <$ C.bezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY
-    --  QuadraticCurveTo cpX cpY endX endY cont
-    --    -> cont <$ C.quadraticCurveTo cpX cpY endX endY
 
 
 fillF :: CanvasWindingRule -> CanvasM ()
@@ -198,6 +158,9 @@ closePathF = liftF $ ClosePath ()
 clipF :: CanvasWindingRule -> CanvasM ()
 clipF rule = liftF $ Clip rule ()
 
+rectF :: Double -> Double -> Double -> Double -> CanvasM ()
+rectF x y h w = liftF $ Rect x y w h ()
+
 doneF :: CanvasM ()
 doneF = liftF $ Done ()
 
@@ -212,67 +175,14 @@ clearRectF x y w h  = liftF $ ClearRect x y w h ()
 fillRectF x y w h   = liftF $ FillRect x y w h ()
 strokeRectF x y w h = liftF $ StrokeRect x y w h ()
 
+quadraticCurveToF :: Double -> Double -> Double -> Double -> CanvasM ()
+quadraticCurveToF cpX cpY endX endY = liftF $ QuadraticCurveTo cpX cpY endX endY ()
 
-drawOneLine
-  :: F CanvasF ()
-drawOneLine = do
-  beginPathF
-  moveToF 10 10
-  lineToF 20 20
-  closePathF
-  strokeStyleF "#0ff"
-  strokeF
-  doneF
+bezierCurveToF :: Double -> Double -> Double -> Double -> Double -> Double -> CanvasM ()
+bezierCurveToF cp1_X cp1_Y cp2_X cp2_Y endX endY = liftF $ BezierCurveTo cp1_X cp1_Y cp2_X cp2_Y endX endY ()
 
-batchLineDraw
-  :: AsCanvasF s s => s -> Maybe s
-batchLineDraw s = do
-  let
-    oneLineP =
-      _BeginPath . _MoveTo . _3 . _LineTo . _3 . _ClosePath . _StrokeStyle . _2 . _Stroke
+arcF :: Double -> Double -> Double -> Double -> Double -> Bool -> CanvasM ()
+arcF x y radius startAngle endAngle anticlockwise = liftF $ Arc x y radius startAngle endAngle anticlockwise ()
 
-  tail' <- s ^? oneLineP . oneLineP
-
-  (move1X, move1Y, _) <- s ^? _BeginPath . _MoveTo
-  (line1X, line1Y, _) <- s ^? _BeginPath . _MoveTo . _3 . _LineTo
-
-  (sStyle1, _) <- s ^? _BeginPath . _MoveTo . _3 . _LineTo . _3 . _ClosePath . _StrokeStyle
-
-  (move2X, move2Y, _) <- s ^? oneLineP . _BeginPath . _MoveTo
-  (line2X, line2Y, _) <- s ^? oneLineP . _BeginPath . _MoveTo . _3 . _LineTo
-
-  (sStyle2, _) <- s ^? oneLineP . _BeginPath . _MoveTo . _3 . _LineTo . _3 . _ClosePath . _StrokeStyle
-
-  if sStyle1 /= sStyle2 then Nothing
-  else Just $
-    _BeginPath # (
-      _MoveTo # (move1X, move1Y,
-        _LineTo # (line1X, line1Y,
-          _MoveTo # (move2X, move2Y,
-            _LineTo # (line2X, line2Y,
-              _ClosePath # (
-                _StrokeStyle # (sStyle1, _Stroke # tail')))))))
-
-drawMoreLinePoorly
-  :: F CanvasF ()
-drawMoreLinePoorly = do
-  let sty = "#0FF"
-  beginPathF
-  moveToF 10 10
-  lineToF 10 10
-  closePathF
-  strokeStyleF sty
-  strokeF
-  beginPathF
-  moveToF 20 10
-  lineToF 20 10
-  closePathF
-  strokeStyleF sty
-  strokeF
-  beginPathF
-  moveToF 20 20
-  lineToF 20 20
-  closePathF
-  strokeStyleF sty
-  strokeF
-  doneF
+arcToF :: Double -> Double -> Double -> Double -> Double -> CanvasM ()
+arcToF cp1_X cp1_Y cp2_X cp2_Y radius = liftF $ ArcTo cp1_X cp1_Y cp2_X cp2_Y radius ()
