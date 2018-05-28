@@ -4,7 +4,7 @@
 }:
 mkDerivation {
   pname = "reflex-dom-canvas";
-  version = "0.1.0.0";
+  version = "0.2.0.0";
   src = ./.;
   libraryHaskellDepends = [
     base bifunctors containers free jsaddle jsaddle-dom lens mtl random
