@@ -14,7 +14,7 @@ import           Control.Lens                   (makeLenses)
 import           GHC.TypeLits                   (Symbol)
 
 import qualified Reflex                         as R
-import qualified Reflex.Dom                     as RD
+import qualified Reflex.Dom.Core                as RD
 
 import           JSDOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
 

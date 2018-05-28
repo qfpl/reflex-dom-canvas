@@ -3,7 +3,7 @@
 }:
 let
   inherit (nixpkgs) pkgs;
-  reflex-platform = import ./reflex-platform.nix;
+  reflex-platform = import ./nix/reflex-platform.nix;
   drv = import ./. { inherit reflex-platform compiler; };
   drvWithTools = pkgs.haskell.lib.addBuildDepends drv
     [ pkgs.cabal-install

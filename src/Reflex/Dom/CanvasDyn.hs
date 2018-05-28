@@ -28,8 +28,8 @@ import           JSDOM.Types                    (IsRenderingContext, JSM,
 import           Reflex                         (Dynamic, Event, (<@))
 import qualified Reflex                         as R
 
-import           Reflex.Dom                     (MonadWidget)
-import qualified Reflex.Dom                     as RD
+import           Reflex.Dom.Core                (MonadWidget)
+import qualified Reflex.Dom.Core                as RD
 
 import           Reflex.Dom.CanvasBuilder.Types
 
