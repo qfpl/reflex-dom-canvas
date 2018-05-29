@@ -7,38 +7,38 @@
 --
 module CanvasTest3D where
 
-import           Control.Lens                       ((^.))
+import           Control.Lens                        ((^.))
 
-import qualified Reflex.Dom.Canvas.WebGL            as Gl
+import qualified Reflex.Dom.Canvas.WebGL             as Gl
 
-import           JSDOM.Types                        (JSString, MonadJSM)
+import           GHCJS.DOM.Types                     (JSString, MonadJSM)
 
-import qualified JSDOM.Types                        as Dom
+import qualified GHCJS.DOM.Types                     as Dom
 
-import qualified Language.Javascript.JSaddle.Object as JSO
+import qualified Language.Javascript.JSaddle.Object  as JSO
 
-import qualified JSDOM.WebGLRenderingContextBase    as Gl
+import qualified GHCJS.DOM.WebGLRenderingContextBase as Gl
 
-import qualified Reflex.Dom.CanvasBuilder.Types     as Canvas
-import qualified Reflex.Dom.CanvasDyn               as CDyn
+import qualified Reflex.Dom.CanvasBuilder.Types      as Canvas
+import qualified Reflex.Dom.CanvasDyn                as CDyn
 
-import qualified Reflex                             as R
+import qualified Reflex                              as R
 
-import           Reflex.Dom                         (MonadWidget)
-import qualified Reflex.Dom                         as RD
+import           Reflex.Dom                          (MonadWidget)
+import qualified Reflex.Dom                          as RD
 
-import           Data.Text                          (Text)
-import qualified Data.Text                          as Text
-import           Data.Time                          (UTCTime, getCurrentTime)
+import           Data.Text                           (Text)
+import qualified Data.Text                           as Text
+import           Data.Time                           (UTCTime, getCurrentTime)
 
-import           Control.Monad.Except               (ExceptT (..), lift,
-                                                     runExceptT)
-import           Data.Either                        (Either)
-import qualified Data.Map                           as Map
+import           Control.Monad.Except                (ExceptT (..), lift,
+                                                      runExceptT)
+import           Data.Either                         (Either)
+import qualified Data.Map                            as Map
 
 #ifndef ghcjs_HOST_OS
-import           Language.Javascript.JSaddle.Warp   (run)
-import           Reflex.Dom.Core                    (mainWidget)
+import           Language.Javascript.JSaddle.Warp    (run)
+import           Reflex.Dom.Core                     (mainWidget)
 #endif
 
 vertShader

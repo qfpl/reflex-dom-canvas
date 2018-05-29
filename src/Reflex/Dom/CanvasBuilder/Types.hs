@@ -9,25 +9,25 @@
 -- | Core types, typeclasses, and structures for handling the canvas contexts.
 module Reflex.Dom.CanvasBuilder.Types where
 
-import           Control.Lens                   (makeLenses)
+import           Control.Lens                       (makeLenses)
 
-import           GHC.TypeLits                   (Symbol)
+import           GHC.TypeLits                       (Symbol)
 
-import qualified Reflex                         as R
-import qualified Reflex.Dom.Core                as RD
+import qualified Reflex                             as R
+import qualified Reflex.Dom.Core                    as RD
 
-import           JSDOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
+import           GHCJS.DOM.CanvasRenderingContext2D (CanvasRenderingContext2D (..))
 
-import           JSDOM.Types                    (IsRenderingContext, JSM,
-                                                 WebGLRenderingContext)
+import           GHCJS.DOM.Types                    (IsRenderingContext, JSM,
+                                                     WebGLRenderingContext)
 
-import           Data.Text                      (Text)
+import           Data.Text                          (Text)
 
-import           Reflex.Dom.Canvas.WebGL        (WebGLM)
-import qualified Reflex.Dom.Canvas.WebGL        as GL
+import           Reflex.Dom.Canvas.WebGL            (WebGLM)
+import qualified Reflex.Dom.Canvas.WebGL            as GL
 
-import           Reflex.Dom.Canvas.Context2D    (CanvasM)
-import qualified Reflex.Dom.Canvas.Context2D    as TwoD
+import           Reflex.Dom.Canvas.Context2D        (CanvasM)
+import qualified Reflex.Dom.Canvas.Context2D        as TwoD
 
 -- | The basic canvas context types
 data ContextType

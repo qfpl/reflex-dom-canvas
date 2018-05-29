@@ -9,13 +9,13 @@
 -- | A subset of 2D drawing actions for working with a canvas.
 module Reflex.Dom.Canvas.Context2D where
 
-import           Control.Monad.Free.Church      (F, foldF, liftF)
+import           Control.Monad.Free.Church          (F, foldF, liftF)
 
-import           JSDOM.CanvasPath               as C
-import           JSDOM.CanvasRenderingContext2D as C
+import           GHCJS.DOM.CanvasPath               as C
+import           GHCJS.DOM.CanvasRenderingContext2D as C
 
-import           JSDOM.Enums                    (CanvasWindingRule)
-import           JSDOM.Types                    (JSString, MonadJSM)
+import           GHCJS.DOM.Enums                    (CanvasWindingRule)
+import           GHCJS.DOM.Types                    (JSString, MonadJSM)
 
 -- Disallow because we want to control this externally
 -- Create Int Int (Canvas -> a)

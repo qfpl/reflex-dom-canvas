@@ -26,7 +26,7 @@ executable examples
                      , reflex-dom >= 0.4 && < 0.5
                      , lens
                      , jsaddle
-                     , jsaddle-dom == 0.9.*
+                     , ghcjs-dom == 0.9.*
                      , time
                      , random
                      , containers == 0.5.*

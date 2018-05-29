@@ -1,4 +1,4 @@
-{ mkDerivation, base, containers, jsaddle, jsaddle-dom, lens, mtl
+{ mkDerivation, base, containers, jsaddle, ghcjs-dom, lens, mtl
 , random, reflex, reflex-dom, reflex-dom-canvas, stdenv, text, time
 }:
 mkDerivation {
@@ -8,7 +8,7 @@ mkDerivation {
   isLibrary = false;
   isExecutable = true;
   executableHaskellDepends = [
-    base containers jsaddle jsaddle-dom lens mtl random reflex
+    base containers jsaddle ghcjs-dom lens mtl random reflex
     reflex-dom reflex-dom-canvas text time
   ];
   license = stdenv.lib.licenses.bsd3;

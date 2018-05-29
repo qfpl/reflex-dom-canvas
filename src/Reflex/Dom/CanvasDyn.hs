@@ -18,9 +18,9 @@ import           Data.Coerce                    (coerce)
 import           Data.Proxy                     (Proxy (..))
 import           GHC.TypeLits                   (KnownSymbol, symbolVal)
 
-import qualified JSDOM
-import           JSDOM.HTMLCanvasElement        (getContextUnchecked)
-import           JSDOM.Types                    (IsRenderingContext, JSM,
+import qualified GHCJS.DOM                      as JSDOM
+import           GHCJS.DOM.HTMLCanvasElement    (getContextUnchecked)
+import           GHCJS.DOM.Types                (IsRenderingContext, JSM,
                                                  RenderingContext (..),
                                                  fromJSValUnchecked, liftJSM,
                                                  toJSVal)

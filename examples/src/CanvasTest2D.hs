@@ -52,8 +52,8 @@ eDraw aTime stdGen = do
     dataN   = 20
 
     canvasAttrs = Map.fromList
-      [ ("height", "480")
-      , ("width" , "640")
+      [ ("height", Text.pack . show $ canvasH)
+      , ("width" , Text.pack . show $ canvasW)
       , ("id"    , "fruity")
       ]
 

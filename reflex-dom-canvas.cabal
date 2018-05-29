@@ -1,5 +1,5 @@
 name:                reflex-dom-canvas
-version:             0.2.0.0
+version:             0.3.0.0
 synopsis:            Reflex functions for the HTML5 Canvas (2D & WebGL)
 description:
   <<http://i.imgur.com/uZnp9ke.png>>
@@ -20,11 +20,7 @@ source-repository   head
   location:         git@github.com/qfpl/reflex-dom-canvas.git
 
 library
-  if impl(ghcjs -any)
-    ghc-options:       -Wall -dedupe
-    cpp-options:       -DGHCJS_BROWSER
-  else
-    ghc-options: -Wall
+  ghc-options:         -Wall
 
   exposed-modules:     Reflex.Dom.CanvasDyn
                      , Reflex.Dom.CanvasBuilder.Types
@@ -38,7 +34,7 @@ library
                      , reflex-dom-core >= 0.4 && <= 0.5
                      , lens
                      , jsaddle
-                     , jsaddle-dom == 0.9.*
+                     , ghcjs-dom == 0.9.*
                      , time
                      , random
                      , containers == 0.5.*

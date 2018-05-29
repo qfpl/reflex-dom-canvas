@@ -6,22 +6,22 @@
 {-# LANGUAGE OverloadedStrings     #-}
 module Reflex.Dom.Canvas.WebGL where
 
-import           JSDOM.Types                     (ArrayBuffer,
-                                                  GLboolean, GLclampf, GLenum,
-                                                  GLfloat, GLint, GLintptr,
-                                                  GLsizei, GLuint,
-                                                  JSString,
-                                                  JSVal, MonadJSM,
-                                                  ToJSString (..), WebGLBuffer,
-                                                  WebGLProgram, WebGLShader,
-                                                  WebGLUniformLocation,
-                                                  fromJSVal, liftJSM)
+import           GHCJS.DOM.Types                     (ArrayBuffer, GLboolean,
+                                                      GLclampf, GLenum, GLfloat,
+                                                      GLint, GLintptr, GLsizei,
+                                                      GLuint, JSString, JSVal,
+                                                      MonadJSM, ToJSString,
+                                                      WebGLBuffer, WebGLProgram,
+                                                      WebGLShader,
+                                                      WebGLUniformLocation,
+                                                      fromJSVal, liftJSM,
+                                                      toJSString)
 
-import           Data.Either                     (Either (..))
-import           Data.Maybe                      (fromMaybe)
-import           Data.Text                       (Text)
+import           Data.Either                         (Either (..))
+import           Data.Maybe                          (fromMaybe)
+import           Data.Text                           (Text)
 
-import qualified JSDOM.WebGLRenderingContextBase as WebGL
+import qualified GHCJS.DOM.WebGLRenderingContextBase as WebGL
 
 import           Control.Monad.Free.Church
 
