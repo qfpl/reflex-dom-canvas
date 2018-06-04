@@ -1,5 +1,5 @@
 name:                reflex-dom-canvas
-version:             0.3.0.0
+version:             0.4.0.0
 synopsis:            Reflex functions for the HTML5 Canvas (2D & WebGL)
 description:
   <<http://i.imgur.com/uZnp9ke.png>>

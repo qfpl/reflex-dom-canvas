@@ -6,7 +6,11 @@
 {-# LANGUAGE MultiParamTypeClasses     #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes                #-}
--- | A subset of 2D drawing actions for working with a canvas.
+-- |
+-- A subset of the <https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D 2D Canvas API>.
+--
+-- These are experimental and do not cover even half of the API, it is likely
+-- they will be wholly deprecated in the near future.
 module Reflex.Dom.Canvas.Context2D where
 
 import           Control.Monad.Free.Church          (F, foldF, liftF)
@@ -39,27 +43,8 @@ import           GHCJS.DOM.Types                    (JSString, MonadJSM)
 -- | Subset of allowable instructions for a 2D canvas context.
 data CanvasF a
   = Transform Float Float Float Float Float Float a
-  -- | SetTransform Double Double Double Double Double Double a
-  -- | Scale Double Double a
-  -- | Translate Double Double a
-  -- | Rotate Double a
   | Fill CanvasWindingRule a
-  -- | FillRule JSString a
-  -- | FillStyle CanvasStyle a
-  -- | GlobalAlpha Double a
-  -- | LineJoin C.LineJoin a
-  -- | LineCap C.LineCap a
-  -- | MiterLimit Double a
-  -- | SetLineDash JSArray a
-  -- | LineDashOffset Double a
-  -- | TextAlign C.TextAlign a
-  -- | TextBaseline C.TextBaseline a
-  -- | LineWidth Double a
-  -- | Font JSString a
-  -- | MeasureText JSString (Double -> a)
   | FillRect Float Float Float Float a
-  -- | FillText JSString Double Double a
-  -- | StrokeText JSString Double Double a
   | BeginPath a
   | MoveTo Double Double a
   | LineTo Double Double a
@@ -76,8 +61,6 @@ data CanvasF a
   | Rect Double Double Double Double a
   | ClearRect Float Float Float Float a
   | StrokeRect Float Float Float Float a
-
-  -- | DrawImage CanvasImageSource Float Float a
 
   | Done a
   deriving (Functor, Foldable, Traversable, Show, Eq)
@@ -117,6 +100,27 @@ applyInstruction cxt instruction =
     -- DrawImage img dw dh cont                              -> cont <$ C.drawImage cxt img dw dh
 
     Done a                     -> pure a
+
+  --  SetTransform Double Double Double Double Double Double a
+  --  Scale Double Double a
+  --  Translate Double Double a
+  --  Rotate Double a
+  --  FillRule JSString a
+  --  FillStyle CanvasStyle a
+  --  GlobalAlpha Double a
+  --  LineJoin C.LineJoin a
+  --  LineCap C.LineCap a
+  --  MiterLimit Double a
+  --  SetLineDash JSArray a
+  --  LineDashOffset Double a
+  --  TextAlign C.TextAlign a
+  --  TextBaseline C.TextBaseline a
+  --  LineWidth Double a
+  --  Font JSString a
+  --  MeasureText JSString (Double -> a)
+  --  FillText JSString Double Double a
+  --  StrokeText JSString Double Double a
+  --  DrawImage CanvasImageSource Float Float a
 
     --  FillText text x y cont                                -> cont <$ C.fillText text x y
     --  Font font' cont                                       -> cont <$ C.font font'

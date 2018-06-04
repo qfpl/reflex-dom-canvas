@@ -4,6 +4,11 @@
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE OverloadedStrings     #-}
+-- |
+-- Subset of the <https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API WebGL API> built as a 'Control.Monad.Free.Church.Free' monad.
+--
+-- These are experimental and do not cover even half of the API, it is likely
+-- they will be wholly deprecated in the near future.
 module Reflex.Dom.Canvas.WebGL where
 
 import           GHCJS.DOM.Types                     (ArrayBuffer, GLboolean,
@@ -324,4 +329,3 @@ applyInstruction cxt instruction = liftJSM $
     ReadJSBool defBool inp cont -> cont . fromMaybe defBool <$> fromJSVal inp
 
     Noop cont -> pure cont
-

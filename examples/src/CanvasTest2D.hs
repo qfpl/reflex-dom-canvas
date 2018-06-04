@@ -91,7 +91,7 @@ eDraw aTime stdGen = do
     dLines = ( ^. AF.dataSet_lines . to toCM )
       <$> dDataLines
 
-  _ <- CDyn.drawCanvasFree dLines d2D eTicken
+  _ <- CDyn.nextFrameWithCxFree dLines d2D eTicken
 
   RD.el "div" $
     RD.dynText ( ( Text.pack . show ) <$> dDataLines )

@@ -70,7 +70,7 @@ data CanvasInfo (c :: ContextType) t = CanvasInfo
   }
 makeLenses ''CanvasInfo
 
--- | Lawless typeclass to just allow for overloading of the render function when
+-- | Lawless typeclass to allow for overloading of the render function when
 -- drawing instructions from the Free monad.
 class IsRenderingContext c ~ IsRenderingContext (RenderContext a) => HasRenderFn a c | a -> c, c -> a where
   renderFunction :: c -> RenderFree a b -> JSM b

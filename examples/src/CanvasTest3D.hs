@@ -169,7 +169,7 @@ eDraw _aTime = do
 
   dInstructions <- R.holdDyn Gl.noopF ( glDraw arrBuffer <$> eRenderMeh )
 
-  _ <- CDyn.drawCanvasFree dInstructions dGLCX eRender
+  _ <- CDyn.nextFrameWithCxFree dInstructions dGLCX eRender
 
   dStatus <- R.holdDyn "A little nothing..." eInitFailed
 
