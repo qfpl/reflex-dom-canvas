@@ -28,10 +28,14 @@ module Reflex.Dom.CanvasDyn
 
   -- ** With @tag@
   , nextFrameWithCx
+  , nextFrameAsyncWithCx
   , nextFrameWithCxFree
  ) where
 
 import           Control.Lens                   ((^.))
+
+import           Control.Monad.IO.Class         (liftIO)
+
 import           Data.Coerce                    (coerce)
 import           Data.Proxy                     (Proxy (..))
 import           GHC.TypeLits                   (KnownSymbol, symbolVal)
@@ -96,13 +100,32 @@ applyCanvasWithCx
   -> Dynamic t (RenderContext c)
   -> Dynamic t (RenderContext c -> Double -> JSM a)
   -> Event t ()
-  -> m ( Event t a)
+  -> m (Event t a)
 applyCanvasWithCx tagFn dContext dAction eApply =
   let
     nextFrame cx f = liftJSM $
       JSDOM.nextAnimationFrame (f cx)
   in
     RD.performEvent (tagFn (nextFrame <$> dContext <*> dAction) eApply)
+
+applyCanvasAsyncWithCx
+  :: forall t m a jsm c. ( MonadWidget t m
+     , MonadJSM jsm
+     , HasRenderFn c (RenderContext c)
+    )
+  => (Dynamic t (jsm a) -> Event t () -> Event t (Performable m a))
+  -> Dynamic t (RenderContext c)
+  -> Dynamic t (RenderContext c -> Double -> JSM a)
+  -> Event t ()
+  -> m (Event t a)
+applyCanvasAsyncWithCx tagFn dContext dAction eApply =
+  let
+    nextFrame cx f = liftJSM $
+      JSDOM.nextAnimationFrame (f cx)
+
+    ePerf = tagFn (nextFrame <$> dContext <*> dAction) eApply
+  in
+    RD.performEventAsync (R.ffor ePerf $ \p c -> p >>= liftIO . c)
 
 applyCanvasFree
   :: ( MonadWidget t m
@@ -156,6 +179,19 @@ nextFrameWithCx
   -> m ( Event t a)
 nextFrameWithCx =
   applyCanvasWithCx (R.tag . R.current)
+
+-- |
+-- Perform the updates using 'Reflex.Class.tag' using the previous value of the 'Reflex.Class.Dynamic'.
+nextFrameAsyncWithCx
+  :: ( MonadWidget t m
+     , HasRenderFn c (RenderContext c)
+     )
+  => Dynamic t (RenderContext c)
+  -> Dynamic t (RenderContext c -> Double -> JSM a)
+  -> Event t ()
+  -> m (Event t a)
+nextFrameAsyncWithCx =
+  applyCanvasAsyncWithCx (R.tag . R.current)
 
 -- |
 -- Evaluate a 'Reflex.Dom.CanvasBuilder.Types.WebGLM' or 'Reflex.Dom.CanvasBuilder.Types.CanvasM' using the given context.
