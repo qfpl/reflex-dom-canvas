@@ -165,7 +165,7 @@ eDraw _aTime = do
       pure $ glProgramInit vertShader fragShader
 
   (eInitFailed, eRenderMeh) <-
-    R.fanEither <$> CDyn.drawCanvasFree dInitProg dGLCX eInit
+    R.fanEither <$> CDyn.nextFrameWithCxFree dInitProg dGLCX eInit
 
   dInstructions <- R.holdDyn Gl.noopF ( glDraw arrBuffer <$> eRenderMeh )
 

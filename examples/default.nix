@@ -24,10 +24,18 @@ let
       mkdir -p $out/css
       ln -s ./css/* $out/css
 
-      ln -s $out/bin/examples.jsexe/index.html $out/index.html
+      ln -s ./index.html $out/index.html
 
       cd $out/bin/examples.jsexe
-      closure-compiler all.js --compilation_level=ADVANCED_OPTIMIZATIONS --isolation_mode=IIFE --assume_function_wrapper --jscomp_off="*" --externs=all.js.externs > $out/js/examples.min.js
+
+      closure-compiler all.js \
+        --compilation_level=ADVANCED_OPTIMIZATIONS \
+        --isolation_mode=IIFE \
+        --assume_function_wrapper \
+        --jscomp_off="*" \
+        --externs=all.js.externs \
+        > $out/js/examples.min.js
+
       rm -Rf $out/bin/examples.jsexe
       rm -Rf $out/bin
 
