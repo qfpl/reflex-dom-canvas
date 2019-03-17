@@ -34,8 +34,6 @@ module Reflex.Dom.CanvasDyn
 
 import           Control.Lens                   ((^.))
 
-import           Control.Monad.IO.Class         (liftIO)
-
 import           Data.Coerce                    (coerce)
 import           Data.Proxy                     (Proxy (..))
 import           GHC.TypeLits                   (KnownSymbol, symbolVal)

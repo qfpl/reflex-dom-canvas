@@ -1,5 +1,5 @@
 name:                reflex-dom-canvas
-version:             0.4.0.0
+version:             0.4.0.1
 synopsis:            Reflex functions for the HTML5 Canvas (2D & WebGL)
 description:
   <<http://i.imgur.com/uZnp9ke.png>>
@@ -35,11 +35,11 @@ library
                      , lens
                      , jsaddle
                      , ghcjs-dom == 0.9.*
-                     , time
-                     , random
+                     , time >= 1.8 && < 2
+                     , random >= 1.1 && < 1.2
                      , containers == 0.5.*
                      , bifunctors == 5.*
-                     , free == 4.12.*
+                     , free >= 5.0 && < 6
 
   hs-source-dirs:      src
   default-language:    Haskell2010
