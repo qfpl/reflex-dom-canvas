@@ -2,7 +2,7 @@ name:                reflex-dom-canvas
 version:             0.4.0.1
 synopsis:            Reflex functions for the HTML5 Canvas (2D & WebGL)
 description:
-  <<http://i.imgur.com/uZnp9ke.png>>
+  <<https://raw.githubusercontent.com/qfpl/assets/master/data61-transparent-bg.png>>
   .
   Provides Reflex support for interacting with the HTML5 Canvas. Supports "context2d" and "webgl".
 license:             BSD3
